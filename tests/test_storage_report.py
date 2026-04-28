@@ -155,7 +155,7 @@ def test_list_simulations_returns_metadata_and_delete_removes_run(tmp_path) -> N
 
 
 def test_report_helpers_return_exportable_data() -> None:
-    event, agents, frames, reactions, _, _, assignments, echo_result = sample_run()
+    event, agents, frames, reactions, _, bubbles, assignments, echo_result = sample_run()
 
     agents_df = agents_to_dataframe(agents)
     reactions_df = reactions_to_dataframe(reactions, bubble_assignments=assignments)
@@ -172,10 +172,14 @@ def test_report_helpers_return_exportable_data() -> None:
             frames=frames,
             reactions=reactions,
             echo_result=echo_result,
+            bubbles=bubbles,
         )
     )
     assert payload["event"]["title"] == "Housing policy reform"
     assert "amplification_metrics" in payload
+    assert "amplification_breakdown" in payload
+    assert "final_state_metrics" in payload
+    assert "narrative_risk_summary" in payload
     assert "export_metadata" in payload
     assert "not a real poll" in payload["export_metadata"]["synthetic_simulation_disclaimer"]
 

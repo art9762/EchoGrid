@@ -26,6 +26,10 @@ The app entrypoint is `app.py`. The test suite does not require API keys.
 - Added filters for initial reactions, echo items, and comments.
 - Added full ZIP export through `src.report.simulation_export_zip`.
 - Added `Makefile`, `pyproject.toml`, architecture notes, ethics notes, and demo script.
+- Added `src.simulation.run_simulation` as the UI-independent application-service layer.
+- Added typed `LLMClient.complete_model` validation/retry support for future hybrid mode.
+- Added amplification breakdown, final-state metrics, and narrative-risk summary helpers.
+- Added `docs/layers.md` to document current layer boundaries.
 
 ## Important Constraints
 
@@ -48,6 +52,6 @@ The app entrypoint is `app.py`. The test suite does not require API keys.
 
 - `README.md` for user-facing setup and limitations.
 - `todo.md` for backlog priorities.
-- `docs/architecture.md` for module responsibilities.
+- `docs/architecture.md` and `docs/layers.md` for module responsibilities and layer boundaries.
 - `docs/ethics.md` for safety boundaries.
 - `tests/test_app_smoke.py` and `tests/test_storage_report.py` for release-critical behavior.

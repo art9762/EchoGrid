@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from statistics import mean, median
 
 import pandas as pd
 
-from src.schemas import AgentProfile, AgentReaction, EchoItem, EchoReaction, SocialBubble, Stance
+from src.schemas import (
+    AgentProfile,
+    AgentReaction,
+    EchoItem,
+    EchoReaction,
+    FinalAgentState,
+    SocialBubble,
+    Stance,
+)
 from src.utils import clamp
 
 
@@ -206,13 +215,51 @@ def echo_amplification_index(
 ) -> float:
     if not initial_reactions or not echo_reactions:
         return 0.0
-    anger = max(0.0, anger_delta(echo_reactions))
-    trust_loss = max(0.0, -trust_delta(echo_reactions))
-    share_growth = max(0.0, virality_growth(echo_reactions))
-    stance_motion = mean(abs(reaction.stance_shift) for reaction in echo_reactions)
-    distortion = distortion_drift(echo_items)
-    score = anger * 0.22 + trust_loss * 0.2 + share_growth * 0.22 + stance_motion * 0.18 + distortion * 0.18
+    breakdown = echo_amplification_breakdown(
+        initial_reactions, echo_reactions, echo_items
+    )
+    score = sum(row["weighted_contribution"] for row in breakdown.values())
     return round(clamp(score), 2)
+
+
+def echo_amplification_breakdown(
+    initial_reactions: list[AgentReaction],
+    echo_reactions: list[EchoReaction],
+    echo_items: list[EchoItem],
+) -> dict[str, dict[str, float]]:
+    """Explain the weighted components behind the amplification index."""
+    if not initial_reactions or not echo_reactions:
+        return {
+            key: {"raw_value": 0.0, "weight": weight, "weighted_contribution": 0.0}
+            for key, weight in _AMPLIFICATION_WEIGHTS.items()
+        }
+
+    raw_values = {
+        "anger_delta": max(0.0, anger_delta(echo_reactions)),
+        "trust_loss": max(0.0, -trust_delta(echo_reactions)),
+        "share_growth": max(0.0, virality_growth(echo_reactions)),
+        "stance_motion": round(
+            mean(abs(reaction.stance_shift) for reaction in echo_reactions), 2
+        ),
+        "distortion": distortion_drift(echo_items),
+    }
+    return {
+        key: {
+            "raw_value": value,
+            "weight": _AMPLIFICATION_WEIGHTS[key],
+            "weighted_contribution": round(value * _AMPLIFICATION_WEIGHTS[key], 2),
+        }
+        for key, value in raw_values.items()
+    }
+
+
+_AMPLIFICATION_WEIGHTS = {
+    "anger_delta": 0.22,
+    "trust_loss": 0.2,
+    "share_growth": 0.22,
+    "stance_motion": 0.18,
+    "distortion": 0.18,
+}
 
 
 def distortion_drift(echo_items: list[EchoItem]) -> float:
@@ -301,3 +348,90 @@ def bubble_susceptibility(
             }
         )
     return rows
+
+
+def final_state_metrics(
+    final_states: dict[str, FinalAgentState],
+    echo_reactions: list[EchoReaction],
+) -> dict[str, object]:
+    """Aggregate after-echo state metrics for dashboard and exports."""
+    states = list(final_states.values())
+    if not states:
+        return {
+            "final_stance_distribution": {stance.value: 0.0 for stance in STANCE_ORDER},
+            "final_trust_average": 0.0,
+            "final_share_likelihood_average": 0.0,
+            "average_stance_shift": 0.0,
+            "average_anger_shift": 0.0,
+        }
+
+    stance_counts = Counter(state.final_stance for state in states)
+    total = len(states)
+    return {
+        "final_stance_distribution": {
+            stance.value: round(stance_counts[stance] * 100 / total, 2)
+            for stance in STANCE_ORDER
+        },
+        "final_trust_average": round(mean(state.final_trust for state in states), 2),
+        "final_share_likelihood_average": round(
+            mean(state.final_share_likelihood for state in states), 2
+        ),
+        "average_stance_shift": (
+            round(mean(reaction.stance_shift for reaction in echo_reactions), 2)
+            if echo_reactions
+            else 0.0
+        ),
+        "average_anger_shift": anger_delta(echo_reactions),
+    }
+
+
+def narrative_risk_summary(
+    echo_items: list[EchoItem],
+    echo_reactions: list[EchoReaction],
+    bubbles: list[SocialBubble],
+) -> dict[str, object]:
+    """Return inspectable narrative-risk highlights from an echo run."""
+    if not echo_items:
+        return {
+            "top_echo_type": None,
+            "top_bubble": None,
+            "highest_distortion_item": None,
+        }
+
+    echo_type_counts = Counter(item.echo_type.value for item in echo_items)
+    bubble_labels = {bubble.id: bubble.label for bubble in bubbles}
+    bubble_scores: dict[str, float] = {}
+    for reaction in echo_reactions:
+        if reaction.bubble_id is None:
+            continue
+        bubble_scores.setdefault(reaction.bubble_id, 0.0)
+        bubble_scores[reaction.bubble_id] += (
+            abs(reaction.stance_shift)
+            + max(0, reaction.emotion_shift.anger)
+            + max(0, reaction.share_likelihood_shift)
+        )
+
+    top_bubble_id = max(bubble_scores, key=bubble_scores.get) if bubble_scores else None
+    highest_distortion = max(
+        echo_items,
+        key=lambda item: (item.distortion_level, item.estimated_reach, item.id),
+    )
+    return {
+        "top_echo_type": echo_type_counts.most_common(1)[0][0],
+        "top_bubble": (
+            {
+                "bubble_id": top_bubble_id,
+                "label": bubble_labels.get(top_bubble_id, top_bubble_id),
+                "risk_score": round(bubble_scores[top_bubble_id], 2),
+            }
+            if top_bubble_id
+            else None
+        ),
+        "highest_distortion_item": {
+            "id": highest_distortion.id,
+            "echo_type": highest_distortion.echo_type.value,
+            "distortion_level": highest_distortion.distortion_level,
+            "estimated_reach": highest_distortion.estimated_reach,
+            "text": highest_distortion.text,
+        },
+    }

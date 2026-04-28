@@ -17,29 +17,22 @@ from src.analytics import (
     trust_average,
 )
 from src.config import ETHICAL_USE_DISCLAIMER, SYNTHETIC_SIMULATION_DISCLAIMER, get_settings
-from src.echo_engine import generate_echo_items, run_echo_simulation
 from src.framing import generate_framings
 from src.llm_client import build_llm_client
-from src.llm_pipeline import (
-    estimate_llm_cost,
-    generate_hybrid_frames,
-    generate_hybrid_response_artifacts,
-)
-from src.media_ecosystem import default_media_actors
-from src.population import generate_population
-from src.reaction_engine import run_initial_reactions
+from src.llm_pipeline import estimate_llm_cost
 from src.report import (
     agents_to_dataframe,
     dataframe_to_csv_export,
     echo_items_to_dataframe,
     echo_reactions_to_dataframe,
     reactions_to_dataframe,
+    simulation_export_zip,
     simulation_summary_json,
 )
 from src.scenarios import demo_scenarios
-from src.schemas import LLMProvider, NewsEvent, PopulationConfig
-from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
-from src.storage import save_simulation
+from src.schemas import LLMProvider, NewsEvent
+from src.simulation import run_simulation as run_simulation_service
+from src.storage import delete_simulation, list_simulations, load_simulation
 
 
 def main() -> None:
@@ -69,6 +62,10 @@ def _setup_panel() -> dict[str, Any] | None:
     settings = get_settings()
     with st.sidebar:
         st.header("Setup")
+        loaded = _previous_runs_panel(settings.database_path)
+        if loaded:
+            return loaded
+
         scenario_name = st.selectbox("Scenario", list(scenarios) + ["Custom event"])
         if scenario_name == "Custom event":
             event = _custom_event_form()
@@ -159,6 +156,35 @@ def _setup_panel() -> dict[str, Any] | None:
     return None
 
 
+def _previous_runs_panel(database_path) -> dict[str, Any] | None:
+    summaries = list_simulations(database_path)
+    if not summaries:
+        st.caption("No saved runs yet.")
+        return None
+
+    with st.expander("Previous runs", expanded=False):
+        options = {
+            _simulation_label(summary): summary["simulation_id"] for summary in summaries
+        }
+        selected_label = st.selectbox("Saved simulation", list(options))
+        selected_id = options[selected_label]
+        c1, c2 = st.columns(2)
+        if c1.button("Load", use_container_width=True):
+            return load_simulation(database_path, selected_id)
+        if c2.button("Delete", use_container_width=True):
+            delete_simulation(database_path, selected_id)
+            st.rerun()
+    return None
+
+
+def _simulation_label(summary: dict[str, Any]) -> str:
+    title = summary.get("event_title") or "Untitled event"
+    created_at = str(summary.get("created_at") or "")[:19].replace("T", " ")
+    population_size = summary.get("population_size", 0)
+    topic = summary.get("topic") or "topic"
+    return f"{created_at} | {title} | {population_size} agents | {topic}"
+
+
 def _custom_event_form() -> NewsEvent:
     title = st.text_input("Title", "Custom public message")
     topic = st.text_input("Topic", "policy")
@@ -211,132 +237,20 @@ def _run_simulation(
     model_name: str | None = None,
     progress_callback: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    provider = provider if isinstance(provider, LLMProvider) else LLMProvider(provider)
-    run_mode = run_mode.strip().lower()
-    settings = get_settings()
-    frames_for_run = list(frames)
-    llm_errors = []
-    representative_comments = []
-    llm_client = None
-
-    if run_mode == "hybrid":
-        _notify(progress_callback, "Connecting to LLM provider")
-        llm_client = build_llm_client(
-            _settings_for_provider(settings, provider, model_name)
-        )
-        _notify(progress_callback, "Generating LLM framings")
-        frames_for_run, frame_errors = generate_hybrid_frames(
-            client=llm_client,
-            event=event,
-            fallback_frames=frames_for_run,
-            frame_count=len(frames_for_run),
-        )
-        llm_errors.extend(frame_errors)
-
-    _notify(progress_callback, "Generating synthetic population")
-    agents = generate_population(
-        PopulationConfig(country=event.country, population_size=population_size, seed=seed)
-    )
-    _notify(progress_callback, "Running initial synthetic reactions")
-    initial_reactions = run_initial_reactions(
-        agents, event, frames_for_run, mode="mock", seed=seed
-    )
-    _notify(progress_callback, "Preparing media actors and social bubbles")
-    media_actors = default_media_actors()
-    bubbles = default_social_bubbles()
-    assignments = assign_agents_to_bubbles(agents, bubbles)
-    echo_result = None
-    echo_items_override = None
-
-    if echo_enabled and echo_rounds:
-        if run_mode == "hybrid" and llm_client is not None:
-            _notify(progress_callback, "Generating LLM echo items and representative comments")
-            fallback_echo_items = generate_echo_items(
-                event=event,
-                frames=frames_for_run,
-                reactions=initial_reactions,
-                media_actors=media_actors,
-                bubbles=bubbles,
-                mode="mock",
-                seed=seed,
-            )
-            artifacts = generate_hybrid_response_artifacts(
-                client=llm_client,
-                event=event,
-                frames=frames_for_run,
-                initial_reactions=initial_reactions,
-                media_actors=media_actors,
-                bubbles=bubbles,
-                fallback_echo_items=fallback_echo_items,
-                echo_enabled=True,
-            )
-            echo_items_override = artifacts.echo_items
-            representative_comments = artifacts.representative_comments
-            llm_errors.extend(artifacts.errors)
-
-        _notify(progress_callback, "Running echo reactions")
-        echo_result = run_echo_simulation(
-            agents=agents,
-            event=event,
-            frames=frames_for_run,
-            initial_reactions=initial_reactions,
-            media_actors=media_actors,
-            bubbles=bubbles,
-            bubble_assignments=assignments,
-            mode="mock",
-            seed=seed,
-            echo_items_override=echo_items_override,
-        )
-    elif run_mode == "hybrid" and llm_client is not None:
-        _notify(progress_callback, "Generating representative comments")
-        artifacts = generate_hybrid_response_artifacts(
-            client=llm_client,
-            event=event,
-            frames=frames_for_run,
-            initial_reactions=initial_reactions,
-            media_actors=media_actors,
-            bubbles=bubbles,
-            fallback_echo_items=[],
-            echo_enabled=False,
-        )
-        representative_comments = artifacts.representative_comments
-        llm_errors.extend(artifacts.errors)
-
-    _notify(progress_callback, "Saving simulation")
-    simulation_id = save_simulation(
-        db_path=settings.database_path,
+    return run_simulation_service(
         event=event,
-        agents=agents,
-        frames=frames_for_run,
-        reactions=initial_reactions,
-        media_actors=media_actors,
-        bubbles=bubbles,
-        bubble_assignments=assignments,
-        echo_result=echo_result,
+        frames=frames,
+        population_size=population_size,
+        seed=seed,
+        echo_enabled=echo_enabled,
+        echo_rounds=echo_rounds,
+        run_mode=run_mode,
+        provider=provider,
+        model_name=model_name,
+        db_path=get_settings().database_path,
+        progress_callback=progress_callback,
+        llm_client_factory=build_llm_client,
     )
-    return {
-        "simulation_id": simulation_id,
-        "event": event,
-        "frames": frames_for_run,
-        "agents": agents,
-        "reactions": initial_reactions,
-        "initial_reactions": initial_reactions,
-        "media_actors": media_actors,
-        "bubbles": bubbles,
-        "assignments": assignments,
-        "echo_result": echo_result,
-        "run_mode": run_mode,
-        "provider": provider,
-        "representative_comments": representative_comments,
-        "llm_errors": llm_errors,
-        "llm_cost_estimate": estimate_llm_cost(
-            run_mode=run_mode,
-            provider=provider,
-            population_size=population_size,
-            frame_count=len(frames_for_run),
-            echo_enabled=echo_enabled,
-        ),
-    }
 
 def _model_preset_options(provider: LLMProvider, run_mode: str) -> list[str]:
     if run_mode == "mock":
@@ -366,28 +280,6 @@ def _model_for_preset(settings: Any, provider: LLMProvider, preset: str) -> str 
             "balanced": getattr(settings, "gemini_echo_model", None),
         }.get(preset)
     return None
-
-
-def _settings_for_provider(
-    settings: Any, provider: LLMProvider, model_name: str | None = None
-) -> Any:
-    updates = {"llm_provider": provider}
-    if model_name and provider == LLMProvider.ANTHROPIC:
-        updates["anthropic_echo_model"] = model_name
-    elif model_name and provider == LLMProvider.OPENAI:
-        updates["openai_echo_model"] = model_name
-    elif model_name and provider == LLMProvider.GEMINI:
-        updates["gemini_echo_model"] = model_name
-    if hasattr(settings, "model_copy"):
-        return settings.model_copy(update=updates)
-    for key, value in updates.items():
-        setattr(settings, key, value)
-    return settings
-
-
-def _notify(callback: Callable[[str], None] | None, message: str) -> None:
-    if callback is not None:
-        callback(message)
 
 
 def _dashboard(simulation: dict[str, Any]) -> None:
@@ -492,7 +384,7 @@ def _media_tab(simulation: dict[str, Any]) -> None:
 
 def _bubbles_tab(simulation: dict[str, Any]) -> None:
     rows = []
-    assignments = simulation["assignments"]
+    assignments = _bubble_assignments(simulation)
     for bubble in simulation["bubbles"]:
         data = bubble.model_dump(mode="json")
         data["agent_count"] = len(assignments.get(bubble.id, []))
@@ -698,9 +590,16 @@ def _export_tab(simulation: dict[str, Any]) -> None:
             provider=simulation.get("provider"),
             representative_comments=simulation.get("representative_comments"),
             llm_errors=simulation.get("llm_errors"),
+            bubbles=simulation["bubbles"],
         ),
         "summary.json",
         mime="application/json",
+    )
+    st.download_button(
+        "Export full ZIP",
+        simulation_export_zip(simulation),
+        f"{simulation['simulation_id']}.zip",
+        mime="application/zip",
     )
 
 

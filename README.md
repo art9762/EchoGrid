@@ -28,7 +28,7 @@ The current release runs fully in deterministic mock mode without API keys. It a
 - Gemini
 - OpenAI / ChatGPT via Trinity
 
-The full agent-scale pipeline currently uses mock mode by default. LLM provider calls are scaffolded for later integration into selected generation steps. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/ZIP exports, automated tests, and developer handoff docs.
+The full agent-scale pipeline currently uses mock mode by default. LLM provider calls are scaffolded for later integration into selected generation steps. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/ZIP exports, automated tests, developer handoff docs, and a UI-independent simulation service layer.
 
 ## Installation
 
@@ -111,6 +111,7 @@ src/
   report.py
   scenarios.py
   schemas.py
+  simulation.py
   social_bubbles.py
   storage.py
   utils.py
@@ -159,6 +160,7 @@ The test suite covers schemas, configuration, population generation, framings, m
 ## Release Documentation
 
 - `docs/architecture.md` explains module responsibilities and the synthetic simulation pipeline.
+- `docs/layers.md` documents the core UI, service, domain, LLM gateway, analytics, reporting, persistence, and safety layers.
 - `docs/ethics.md` documents allowed and disallowed uses.
 - `docs/demo-script.md` gives a conference-style demo path.
 - `docs/AI_HANDOFF.md` summarizes current state and next work for other models and developers.

@@ -11,8 +11,11 @@ import pandas as pd
 
 from src.analytics import (
     age_group,
+    echo_amplification_breakdown,
     emotion_averages,
+    final_state_metrics,
     institutional_trust_bucket,
+    narrative_risk_summary,
     share_likelihood_distribution,
     stance_distribution,
     trust_average,
@@ -29,6 +32,7 @@ from src.schemas import (
     NewsEvent,
     NewsFrame,
     RepresentativeComment,
+    SocialBubble,
 )
 
 
@@ -81,14 +85,15 @@ def simulation_summary_json(
     reactions: list[AgentReaction],
     echo_result: EchoSimulationResult | None = None,
     run_mode: str = "mock",
-    provider: LLMProvider | None = None,
+    provider: LLMProvider | str | None = None,
     representative_comments: list[RepresentativeComment] | None = None,
     llm_errors: list[LLMGenerationError] | None = None,
+    bubbles: list[SocialBubble] | None = None,
 ) -> str:
     payload = {
         "export_metadata": export_metadata("summary"),
         "run_mode": run_mode,
-        "provider": provider.value if provider else None,
+        "provider": provider.value if isinstance(provider, LLMProvider) else provider,
         "event": event.model_dump(mode="json"),
         "frames": [frame.model_dump(mode="json") for frame in frames],
         "initial_metrics": {
@@ -99,6 +104,28 @@ def simulation_summary_json(
         },
         "amplification_metrics": (
             echo_result.amplification_metrics if echo_result else {}
+        ),
+        "amplification_breakdown": (
+            echo_amplification_breakdown(
+                reactions, echo_result.echo_reactions, echo_result.echo_items
+            )
+            if echo_result
+            else {}
+        ),
+        "final_state_metrics": (
+            final_state_metrics(
+                echo_result.final_reaction_state_by_agent,
+                echo_result.echo_reactions,
+            )
+            if echo_result
+            else {}
+        ),
+        "narrative_risk_summary": (
+            narrative_risk_summary(
+                echo_result.echo_items, echo_result.echo_reactions, bubbles or []
+            )
+            if echo_result
+            else {}
         ),
         "echo_item_count": len(echo_result.echo_items) if echo_result else 0,
         "echo_reaction_count": len(echo_result.echo_reactions) if echo_result else 0,
@@ -135,6 +162,11 @@ def simulation_export_zip(simulation: dict[str, Any]) -> bytes:
             frames=simulation["frames"],
             reactions=simulation["initial_reactions"],
             echo_result=echo_result,
+            run_mode=simulation.get("run_mode", "mock"),
+            provider=simulation.get("provider"),
+            representative_comments=simulation.get("representative_comments"),
+            llm_errors=simulation.get("llm_errors"),
+            bubbles=simulation["bubbles"],
         ),
         "agents.csv": dataframe_to_csv_export(
             agents_to_dataframe(simulation["agents"]), "agents"

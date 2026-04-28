@@ -28,6 +28,17 @@ class LLMClient(ABC):
     def complete_json(self, prompt: str, max_tokens: int = 1500) -> dict[str, Any]:
         return parse_json_response(self.complete_text(prompt, max_tokens=max_tokens))
 
+    def complete_model(
+        self,
+        prompt: str,
+        model_type: type[EchoGridModel],
+        max_tokens: int = 1500,
+        retries: int = 1,
+    ) -> EchoGridModel:
+        return self._complete_validated_adapter(
+            prompt, TypeAdapter(model_type), max_tokens=max_tokens, retries=retries
+        )
+
     def generate_reaction_json(
         self, prompt: str, max_tokens: int = 1500
     ) -> AgentReaction:
@@ -67,11 +78,15 @@ class LLMClient(ABC):
         )
 
     def _complete_validated_adapter(
-        self, prompt: str, adapter: TypeAdapter[T], max_tokens: int
+        self,
+        prompt: str,
+        adapter: TypeAdapter[T],
+        max_tokens: int,
+        retries: int = 1,
     ) -> T:
         retry_prompt = prompt
         last_error: Exception | None = None
-        for attempt in range(2):
+        for attempt in range(retries + 1):
             try:
                 payload = parse_json_value(
                     self.complete_text(retry_prompt, max_tokens=max_tokens)
@@ -79,10 +94,10 @@ class LLMClient(ABC):
                 return adapter.validate_python(payload)
             except (json.JSONDecodeError, ValidationError, ValueError) as exc:
                 last_error = exc
-                if attempt == 1:
+                if attempt == retries:
                     break
                 retry_prompt = build_json_retry_prompt(prompt, exc)
-        raise ValueError("LLM returned invalid JSON after one retry") from last_error
+        raise ValueError("LLM returned invalid JSON after retry") from last_error
 
     @abstractmethod
     def complete_text(self, prompt: str, max_tokens: int = 1500) -> str:

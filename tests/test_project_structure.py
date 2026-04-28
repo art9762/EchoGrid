@@ -14,6 +14,7 @@ CORE_MODULES = [
     "src.reaction_engine",
     "src.report",
     "src.social_bubbles",
+    "src.simulation",
     "src.storage",
     "src.utils",
 ]
@@ -70,6 +71,7 @@ def test_release_developer_files_exist() -> None:
 def test_release_documentation_exists() -> None:
     docs = [
         Path("docs/architecture.md"),
+        Path("docs/layers.md"),
         Path("docs/ethics.md"),
         Path("docs/demo-script.md"),
         Path("docs/AI_HANDOFF.md"),
