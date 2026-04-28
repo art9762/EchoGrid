@@ -43,3 +43,12 @@ def test_project_entrypoint_and_env_example_exist() -> None:
     env_example = Path(".env.example").read_text(encoding="utf-8")
     assert "ANTHROPIC_API_KEY" in env_example
     assert "GEMINI_API_KEY" in env_example
+
+
+def test_public_repository_metadata_exists() -> None:
+    license_text = Path("LICENSE").read_text(encoding="utf-8")
+    readme_text = Path("README.md").read_text(encoding="utf-8")
+
+    assert license_text.startswith("MIT License")
+    assert "## License" in readme_text
+    assert "LICENSE" in readme_text

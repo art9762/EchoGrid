@@ -141,6 +141,10 @@ The test suite covers schemas, configuration, population generation, framings, m
 - LLM provider calls are scaffolded but not yet used for full-scale agent simulation.
 - Network diffusion is bubble-based, not graph-based.
 
+## License
+
+MIT License. See [LICENSE](LICENSE).
+
 ## Roadmap
 
 - Add hybrid mode: mock population plus LLM-generated framings, echo items, and representative comments.
