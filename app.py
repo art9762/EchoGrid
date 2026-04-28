@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -16,8 +17,14 @@ from src.analytics import (
     trust_average,
 )
 from src.config import ETHICAL_USE_DISCLAIMER, SYNTHETIC_SIMULATION_DISCLAIMER, get_settings
-from src.echo_engine import run_echo_simulation
+from src.echo_engine import generate_echo_items, run_echo_simulation
 from src.framing import generate_framings
+from src.llm_client import build_llm_client
+from src.llm_pipeline import (
+    estimate_llm_cost,
+    generate_hybrid_frames,
+    generate_hybrid_response_artifacts,
+)
 from src.media_ecosystem import default_media_actors
 from src.population import generate_population
 from src.reaction_engine import run_initial_reactions
@@ -30,7 +37,7 @@ from src.report import (
     simulation_summary_json,
 )
 from src.scenarios import demo_scenarios
-from src.schemas import NewsEvent, PopulationConfig
+from src.schemas import LLMProvider, NewsEvent, PopulationConfig
 from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
 from src.storage import save_simulation
 
@@ -59,6 +66,7 @@ def main() -> None:
 
 def _setup_panel() -> dict[str, Any] | None:
     scenarios = demo_scenarios()
+    settings = get_settings()
     with st.sidebar:
         st.header("Setup")
         scenario_name = st.selectbox("Scenario", list(scenarios) + ["Custom event"])
@@ -69,35 +77,85 @@ def _setup_panel() -> dict[str, Any] | None:
 
         population_size = st.slider("Population size", 50, 1000, 300, step=50)
         seed = st.number_input("Random seed", value=42, min_value=0, step=1)
+        run_mode_label = st.selectbox(
+            "Run mode",
+            ["Mock", "Hybrid"],
+            help="Hybrid uses LLM calls only for framings, echo items, and representative comments.",
+        )
+        run_mode = "mock" if run_mode_label == "Mock" else "hybrid"
+        provider_options = (
+            [LLMProvider.MOCK]
+            if run_mode == "mock"
+            else [LLMProvider.ANTHROPIC, LLMProvider.OPENAI, LLMProvider.GEMINI]
+        )
         provider = st.selectbox(
             "Provider",
-            ["mock", "anthropic", "gemini", "openai"],
-            help="MVP v1 runs the full simulation in deterministic mock mode. API providers are configured for the upcoming LLM mode.",
+            provider_options,
+            format_func=lambda value: value.value,
+            help="Claude and ChatGPT/OpenAI routes use the Trinity gateway. Gemini uses its direct API key.",
         )
-        st.caption(f"Configured provider: {provider}. Current run mode: mock.")
+        model_preset = st.selectbox(
+            "Model preset",
+            _model_preset_options(provider, run_mode),
+            disabled=run_mode == "mock",
+        )
+        model_name = _model_for_preset(settings, provider, model_preset)
+        if model_name:
+            st.caption(f"Model: {model_name}")
 
         all_frames = generate_framings(event, n=6)
         selected_frame_ids = st.multiselect(
-            "Framings",
+            "Framings" if run_mode == "mock" else "Fallback framings",
             [frame.frame_id for frame in all_frames],
             default=[frame.frame_id for frame in all_frames[:4]],
+            help="In Hybrid mode this count guides LLM frame generation and these frames are used if the LLM call fails.",
         )
         echo_enabled = st.toggle("Echo simulation", value=True)
         echo_rounds = st.number_input("Echo rounds", value=1, min_value=1, max_value=1)
+        frame_count = max(1, len(selected_frame_ids))
+        estimate = estimate_llm_cost(
+            run_mode=run_mode,
+            provider=provider,
+            population_size=population_size,
+            frame_count=frame_count,
+            echo_enabled=echo_enabled,
+        )
+        st.caption(
+            f"Estimated LLM calls: {estimate.estimated_calls}; "
+            f"rough cost: ${estimate.estimated_usd_low:.4f}-${estimate.estimated_usd_high:.4f}. "
+            f"{estimate.notes}"
+        )
+        provider_ready, provider_message = _provider_ready(settings, provider, run_mode)
+        if provider_message:
+            (st.info if provider_ready else st.warning)(provider_message)
 
-        if st.button("Run simulation", type="primary", use_container_width=True):
+        if st.button(
+            "Run simulation",
+            type="primary",
+            use_container_width=True,
+            disabled=not provider_ready,
+        ):
             frames = [
                 frame for frame in all_frames if frame.frame_id in set(selected_frame_ids)
             ] or all_frames[:1]
-            with st.spinner("Generating synthetic population and echo dynamics..."):
-                return _run_simulation(
+            with st.status("Running EchoGrid simulation...", expanded=True) as status:
+                def progress(message: str) -> None:
+                    status.write(message)
+
+                simulation = _run_simulation(
                     event=event,
                     frames=frames,
                     population_size=population_size,
                     seed=int(seed),
                     echo_enabled=echo_enabled,
                     echo_rounds=int(echo_rounds),
+                    run_mode=run_mode,
+                    provider=provider,
+                    model_name=model_name,
+                    progress_callback=progress,
                 )
+                status.update(label="Simulation ready", state="complete")
+                return simulation
     return None
 
 
@@ -120,6 +178,27 @@ def _custom_event_form() -> NewsEvent:
     )
 
 
+def _provider_ready(
+    settings: Any, provider: LLMProvider, run_mode: str
+) -> tuple[bool, str]:
+    if run_mode == "mock":
+        return True, "Mock mode is local and does not require API keys."
+    if provider in {LLMProvider.ANTHROPIC, LLMProvider.OPENAI}:
+        missing = []
+        if not getattr(settings, "trinity_api_key", None):
+            missing.append("TRINITY_API_KEY")
+        if not getattr(settings, "trinity_base_url", None):
+            missing.append("TRINITY_BASE_URL")
+        if missing:
+            return False, f"Set {', '.join(missing)} in .env before running {provider.value} via Trinity."
+        return True, f"{provider.value} will be routed through the Trinity gateway."
+    if provider == LLMProvider.GEMINI:
+        if not getattr(settings, "gemini_api_key", None):
+            return False, "Set GEMINI_API_KEY in .env before running Gemini Hybrid mode."
+        return True, "Gemini Hybrid mode will use the direct Gemini API key."
+    return False, f"Unsupported provider for {run_mode}: {provider.value}"
+
+
 def _run_simulation(
     event: NewsEvent,
     frames,
@@ -127,32 +206,108 @@ def _run_simulation(
     seed: int,
     echo_enabled: bool,
     echo_rounds: int,
+    run_mode: str = "mock",
+    provider: LLMProvider = LLMProvider.MOCK,
+    model_name: str | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
+    provider = provider if isinstance(provider, LLMProvider) else LLMProvider(provider)
+    run_mode = run_mode.strip().lower()
+    settings = get_settings()
+    frames_for_run = list(frames)
+    llm_errors = []
+    representative_comments = []
+    llm_client = None
+
+    if run_mode == "hybrid":
+        _notify(progress_callback, "Connecting to LLM provider")
+        llm_client = build_llm_client(
+            _settings_for_provider(settings, provider, model_name)
+        )
+        _notify(progress_callback, "Generating LLM framings")
+        frames_for_run, frame_errors = generate_hybrid_frames(
+            client=llm_client,
+            event=event,
+            fallback_frames=frames_for_run,
+            frame_count=len(frames_for_run),
+        )
+        llm_errors.extend(frame_errors)
+
+    _notify(progress_callback, "Generating synthetic population")
     agents = generate_population(
         PopulationConfig(country=event.country, population_size=population_size, seed=seed)
     )
-    initial_reactions = run_initial_reactions(agents, event, frames, mode="mock", seed=seed)
+    _notify(progress_callback, "Running initial synthetic reactions")
+    initial_reactions = run_initial_reactions(
+        agents, event, frames_for_run, mode="mock", seed=seed
+    )
+    _notify(progress_callback, "Preparing media actors and social bubbles")
     media_actors = default_media_actors()
     bubbles = default_social_bubbles()
     assignments = assign_agents_to_bubbles(agents, bubbles)
     echo_result = None
+    echo_items_override = None
+
     if echo_enabled and echo_rounds:
+        if run_mode == "hybrid" and llm_client is not None:
+            _notify(progress_callback, "Generating LLM echo items and representative comments")
+            fallback_echo_items = generate_echo_items(
+                event=event,
+                frames=frames_for_run,
+                reactions=initial_reactions,
+                media_actors=media_actors,
+                bubbles=bubbles,
+                mode="mock",
+                seed=seed,
+            )
+            artifacts = generate_hybrid_response_artifacts(
+                client=llm_client,
+                event=event,
+                frames=frames_for_run,
+                initial_reactions=initial_reactions,
+                media_actors=media_actors,
+                bubbles=bubbles,
+                fallback_echo_items=fallback_echo_items,
+                echo_enabled=True,
+            )
+            echo_items_override = artifacts.echo_items
+            representative_comments = artifacts.representative_comments
+            llm_errors.extend(artifacts.errors)
+
+        _notify(progress_callback, "Running echo reactions")
         echo_result = run_echo_simulation(
             agents=agents,
             event=event,
-            frames=frames,
+            frames=frames_for_run,
             initial_reactions=initial_reactions,
             media_actors=media_actors,
             bubbles=bubbles,
             bubble_assignments=assignments,
             mode="mock",
             seed=seed,
+            echo_items_override=echo_items_override,
         )
+    elif run_mode == "hybrid" and llm_client is not None:
+        _notify(progress_callback, "Generating representative comments")
+        artifacts = generate_hybrid_response_artifacts(
+            client=llm_client,
+            event=event,
+            frames=frames_for_run,
+            initial_reactions=initial_reactions,
+            media_actors=media_actors,
+            bubbles=bubbles,
+            fallback_echo_items=[],
+            echo_enabled=False,
+        )
+        representative_comments = artifacts.representative_comments
+        llm_errors.extend(artifacts.errors)
+
+    _notify(progress_callback, "Saving simulation")
     simulation_id = save_simulation(
-        db_path=get_settings().database_path,
+        db_path=settings.database_path,
         event=event,
         agents=agents,
-        frames=frames,
+        frames=frames_for_run,
         reactions=initial_reactions,
         media_actors=media_actors,
         bubbles=bubbles,
@@ -162,7 +317,7 @@ def _run_simulation(
     return {
         "simulation_id": simulation_id,
         "event": event,
-        "frames": frames,
+        "frames": frames_for_run,
         "agents": agents,
         "reactions": initial_reactions,
         "initial_reactions": initial_reactions,
@@ -170,7 +325,69 @@ def _run_simulation(
         "bubbles": bubbles,
         "assignments": assignments,
         "echo_result": echo_result,
+        "run_mode": run_mode,
+        "provider": provider,
+        "representative_comments": representative_comments,
+        "llm_errors": llm_errors,
+        "llm_cost_estimate": estimate_llm_cost(
+            run_mode=run_mode,
+            provider=provider,
+            population_size=population_size,
+            frame_count=len(frames_for_run),
+            echo_enabled=echo_enabled,
+        ),
     }
+
+def _model_preset_options(provider: LLMProvider, run_mode: str) -> list[str]:
+    if run_mode == "mock":
+        return ["Local mock"]
+    if provider == LLMProvider.ANTHROPIC:
+        return ["balanced", "cheap", "premium"]
+    return ["balanced", "cheap"]
+
+
+def _model_for_preset(settings: Any, provider: LLMProvider, preset: str) -> str | None:
+    if provider == LLMProvider.MOCK:
+        return None
+    if provider == LLMProvider.ANTHROPIC:
+        return {
+            "cheap": getattr(settings, "anthropic_reaction_model", None),
+            "balanced": getattr(settings, "anthropic_echo_model", None),
+            "premium": getattr(settings, "anthropic_premium_model", None),
+        }.get(preset)
+    if provider == LLMProvider.OPENAI:
+        return {
+            "cheap": getattr(settings, "openai_reaction_model", None),
+            "balanced": getattr(settings, "openai_echo_model", None),
+        }.get(preset)
+    if provider == LLMProvider.GEMINI:
+        return {
+            "cheap": getattr(settings, "gemini_reaction_model", None),
+            "balanced": getattr(settings, "gemini_echo_model", None),
+        }.get(preset)
+    return None
+
+
+def _settings_for_provider(
+    settings: Any, provider: LLMProvider, model_name: str | None = None
+) -> Any:
+    updates = {"llm_provider": provider}
+    if model_name and provider == LLMProvider.ANTHROPIC:
+        updates["anthropic_echo_model"] = model_name
+    elif model_name and provider == LLMProvider.OPENAI:
+        updates["openai_echo_model"] = model_name
+    elif model_name and provider == LLMProvider.GEMINI:
+        updates["gemini_echo_model"] = model_name
+    if hasattr(settings, "model_copy"):
+        return settings.model_copy(update=updates)
+    for key, value in updates.items():
+        setattr(settings, key, value)
+    return settings
+
+
+def _notify(callback: Callable[[str], None] | None, message: str) -> None:
+    if callback is not None:
+        callback(message)
 
 
 def _dashboard(simulation: dict[str, Any]) -> None:
@@ -229,6 +446,18 @@ def _overview_tab(simulation: dict[str, Any]) -> None:
     c3.metric("Initial reactions", len(reactions))
     c4.metric("Echo items", len(echo_result.echo_items) if echo_result else 0)
     st.caption(f"Simulation ID: {simulation['simulation_id']}")
+    st.caption(
+        f"Run mode: {simulation.get('run_mode', 'mock')} | "
+        f"Provider: {_provider_label(simulation.get('provider'))}"
+    )
+    llm_errors = simulation.get("llm_errors") or []
+    if llm_errors:
+        st.warning("Some LLM generation steps fell back to deterministic artifacts.")
+        st.dataframe(
+            pd.DataFrame([error.model_dump(mode="json") for error in llm_errors]),
+            use_container_width=True,
+            hide_index=True,
+        )
     st.subheader(event.title)
     st.write(event.description)
     st.code(event.original_text, language="text")
@@ -395,6 +624,18 @@ def _segment_tab(simulation: dict[str, Any]) -> None:
 
 
 def _comments_tab(simulation: dict[str, Any]) -> None:
+    representative_comments = simulation.get("representative_comments") or []
+    if representative_comments:
+        st.subheader("Representative comments")
+        st.dataframe(
+            pd.DataFrame(
+                [comment.model_dump(mode="json") for comment in representative_comments]
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.divider()
+
     df = reactions_to_dataframe(
         simulation["initial_reactions"], _bubble_assignments(simulation)
     )
@@ -453,10 +694,20 @@ def _export_tab(simulation: dict[str, Any]) -> None:
             frames=simulation["frames"],
             reactions=simulation["initial_reactions"],
             echo_result=echo_result,
+            run_mode=simulation.get("run_mode", "mock"),
+            provider=simulation.get("provider"),
+            representative_comments=simulation.get("representative_comments"),
+            llm_errors=simulation.get("llm_errors"),
         ),
         "summary.json",
         mime="application/json",
     )
+
+
+def _provider_label(provider: Any) -> str:
+    if isinstance(provider, LLMProvider):
+        return provider.value
+    return str(provider or "mock")
 
 
 def _bubble_assignments(simulation: dict[str, Any]) -> dict[str, list[str]]:

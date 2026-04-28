@@ -153,6 +153,16 @@ class NewsFrame(EchoGridModel):
     source_type: str | None = None
 
 
+class RepresentativeComment(EchoGridModel):
+    segment_id: str = Field(min_length=1)
+    segment_label: str = Field(min_length=1)
+    stance: Stance
+    frame_id: str | None = None
+    bubble_id: str | None = None
+    comment: str = Field(min_length=1)
+    source_reaction_ids: list[str] = Field(default_factory=list)
+
+
 class AgentReaction(EchoGridModel):
     agent_id: str = Field(min_length=1)
     frame_id: str = Field(min_length=1)
@@ -274,3 +284,26 @@ class EchoSimulationResult(EchoGridModel):
         default_factory=dict
     )
     amplification_metrics: dict[str, float] = Field(default_factory=dict)
+
+
+class LLMGenerationError(EchoGridModel):
+    step: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+
+
+class LLMCostEstimate(EchoGridModel):
+    run_mode: str = Field(min_length=1)
+    provider: LLMProvider
+    estimated_calls: int = Field(ge=0)
+    estimated_input_tokens: int = Field(ge=0)
+    estimated_output_tokens: int = Field(ge=0)
+    estimated_usd_low: float = Field(ge=0)
+    estimated_usd_high: float = Field(ge=0)
+    notes: str = Field(min_length=1)
+
+
+class HybridArtifacts(EchoGridModel):
+    frames: list[NewsFrame] = Field(default_factory=list)
+    echo_items: list[EchoItem] = Field(default_factory=list)
+    representative_comments: list[RepresentativeComment] = Field(default_factory=list)
+    errors: list[LLMGenerationError] = Field(default_factory=list)
