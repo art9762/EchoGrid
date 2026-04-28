@@ -8,6 +8,7 @@ CORE_MODULES = [
     "src.framing",
     "src.guardrails",
     "src.llm_client",
+    "src.llm_pipeline",
     "src.media_ecosystem",
     "src.population",
     "src.reaction_engine",
@@ -23,6 +24,7 @@ PROMPT_FILES = [
     "reaction_prompt.txt",
     "echo_generation_prompt.txt",
     "echo_reaction_prompt.txt",
+    "representative_comments_prompt.txt",
 ]
 
 
@@ -41,7 +43,8 @@ def test_prompt_templates_exist_and_request_json() -> None:
 def test_project_entrypoint_and_env_example_exist() -> None:
     assert Path("app.py").is_file()
     env_example = Path(".env.example").read_text(encoding="utf-8")
-    assert "ANTHROPIC_API_KEY" in env_example
+    assert "TRINITY_API_KEY" in env_example
+    assert "TRINITY_BASE_URL" in env_example
     assert "GEMINI_API_KEY" in env_example
 
 

@@ -59,7 +59,7 @@
   - echo items by target_bubble
   - comments by stance/frame/bubble
 
-- [ ] Добавить progress/status messages при запуске симуляции:
+- [x] Добавить progress/status messages при запуске симуляции:
   - generating population
   - generating frames
   - running reactions
@@ -79,25 +79,24 @@
   - функция: `load_prompt(name: str) -> str`
   - тест: prompt exists and contains JSON instruction
 
-- [ ] Расширить `src/llm_client.py`:
+- [x] Расширить `src/llm_client.py`:
   - отдельные методы для `generate_reaction_json`
   - `generate_echo_items_json`
   - `generate_echo_reaction_json`
   - retry once on invalid JSON
   - structured validation through Pydantic schemas
 
-- [ ] Добавить provider routing:
+- [x] Добавить provider routing:
   - `mock`
-  - `anthropic`
+  - `anthropic` через Trinity
   - `gemini`
-  - `openai`
+  - `openai` через Trinity
 
-- [ ] Добавить UI mode selector:
+- [x] Добавить UI mode selector:
   - `Mock`
   - `Hybrid`
-  - `Full LLM small sample`
 
-- [ ] Реализовать Hybrid mode:
+- [x] Реализовать Hybrid mode:
   - population остается mock
   - initial reactions остаются mock для всех agents
   - LLM генерирует improved framings
@@ -109,13 +108,13 @@
   - показывать предупреждение о стоимости
   - не запускать тысячи вызовов без явного подтверждения
 
-- [ ] Добавить cost estimator перед запуском LLM:
+- [x] Добавить cost estimator перед запуском LLM:
   - estimated input tokens
   - estimated output tokens
   - estimated calls
   - rough USD estimate by provider/model
 
-- [ ] Добавить model presets:
+- [x] Добавить model presets:
   - Anthropic cheap: `claude-haiku-4-5-20251001`
   - Anthropic balanced: `claude-sonnet-4-6`
   - Gemini cheap: `gemini-2.5-flash-lite`

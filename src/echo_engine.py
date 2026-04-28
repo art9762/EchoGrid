@@ -112,8 +112,9 @@ def run_echo_simulation(
     bubble_assignments: dict[str, list[str]],
     mode: str = "mock",
     seed: int = 42,
+    echo_items_override: list[EchoItem] | None = None,
 ) -> EchoSimulationResult:
-    echo_items = generate_echo_items(
+    echo_items = echo_items_override or generate_echo_items(
         event, frames, initial_reactions, media_actors, bubbles, mode=mode, seed=seed
     )
     agent_lookup = {agent.id: agent for agent in agents}

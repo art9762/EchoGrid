@@ -24,9 +24,9 @@ EchoGrid must not be used to optimize manipulative persuasion, political targeti
 
 The current MVP runs fully in deterministic mock mode without API keys. It also includes a provider abstraction for:
 
-- Anthropic / Claude
+- Anthropic / Claude via Trinity
 - Gemini
-- OpenAI / ChatGPT API
+- OpenAI / ChatGPT via Trinity
 
 The full agent-scale pipeline currently uses mock mode by default. LLM provider calls are scaffolded for later integration into selected generation steps.
 
@@ -48,12 +48,14 @@ cp .env.example .env
 Optional API keys:
 
 ```bash
-ANTHROPIC_API_KEY=
+TRINITY_API_KEY=
+TRINITY_BASE_URL=
 GEMINI_API_KEY=
-OPENAI_API_KEY=
 ```
 
 Default mock mode does not require any key.
+
+When `ECHOGRID_LLM_PROVIDER` is `anthropic` or `openai`, EchoGrid uses the Trinity gateway through the OpenAI-compatible chat completions client. Gemini remains a direct provider route.
 
 ## Run
 
@@ -62,6 +64,13 @@ Default mock mode does not require any key.
 ```
 
 The app opens a Streamlit dashboard with setup controls, synthetic population charts, media ecosystem tables, social bubbles, initial reactions, echo timeline, amplification metrics, comments, and exports.
+
+## Run Modes
+
+- `Mock`: fully local deterministic simulation, no API calls.
+- `Hybrid`: local synthetic population and initial reactions, plus bounded LLM calls for improved framings, echo items, and representative comments. Claude and ChatGPT/OpenAI models are routed through Trinity; Gemini uses `GEMINI_API_KEY`.
+
+Hybrid mode deliberately avoids per-agent LLM calls. It samples high-signal reactions and sends only artifact-level prompts, so a 1000-agent run still uses a small fixed number of LLM requests.
 
 ## Demo Scenarios
 
@@ -85,6 +94,7 @@ src/
   echo_engine.py
   framing.py
   llm_client.py
+  llm_pipeline.py
   media_ecosystem.py
   population.py
   reaction_engine.py
@@ -131,14 +141,14 @@ Dashboard export supports:
 .venv/bin/python -m pytest -q
 ```
 
-The test suite covers schemas, configuration, population generation, framings, media actors, social bubbles, mock reactions, analytics, echo simulation, storage, exports, scenarios, and provider scaffolding.
+The test suite covers schemas, configuration, population generation, framings, media actors, social bubbles, mock reactions, analytics, echo simulation, hybrid LLM orchestration, storage, exports, scenarios, and provider scaffolding.
 
 ## Limitations
 
 - Mock mode is plausible and deterministic, not scientifically calibrated.
 - Outputs should not be interpreted as survey evidence.
 - Current echo simulation supports one echo round.
-- LLM provider calls are scaffolded but not yet used for full-scale agent simulation.
+- Hybrid mode uses bounded artifact-level LLM calls; full per-agent LLM simulation is not implemented.
 - Network diffusion is bubble-based, not graph-based.
 
 ## License
@@ -147,7 +157,7 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Roadmap
 
-- Add hybrid mode: mock population plus LLM-generated framings, echo items, and representative comments.
+- Extend hybrid mode with richer reports and persisted LLM artifacts.
 - Add full LLM mode for small stratified samples.
 - Add multi-round echo cascades.
 - Add previous-run loading from SQLite.

@@ -13,7 +13,14 @@ from src.report import (
     reactions_to_dataframe,
     simulation_summary_json,
 )
-from src.schemas import NewsEvent, PopulationConfig
+from src.schemas import (
+    LLMGenerationError,
+    LLMProvider,
+    NewsEvent,
+    PopulationConfig,
+    RepresentativeComment,
+    Stance,
+)
 from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
 from src.storage import init_database, load_simulation, save_simulation
 
@@ -127,6 +134,38 @@ def test_report_helpers_return_exportable_data() -> None:
     assert "amplification_metrics" in payload
     assert "export_metadata" in payload
     assert "not a real poll" in payload["export_metadata"]["synthetic_simulation_disclaimer"]
+
+
+def test_summary_export_includes_llm_artifacts_when_available() -> None:
+    event, _, frames, reactions, _, _, _, echo_result = sample_run()
+    representative_comment = RepresentativeComment(
+        segment_id="support:neutral",
+        segment_label="Supporters of the neutral frame",
+        stance=Stance.SUPPORT,
+        frame_id="neutral",
+        bubble_id="policy_detail_seekers",
+        comment="This sounds practical if safeguards are clear.",
+        source_reaction_ids=["agent-0001:neutral"],
+    )
+    llm_error = LLMGenerationError(step="echo_items", message="ValueError: fallback used")
+
+    payload = json.loads(
+        simulation_summary_json(
+            event=event,
+            frames=frames,
+            reactions=reactions,
+            echo_result=echo_result,
+            run_mode="hybrid",
+            provider=LLMProvider.ANTHROPIC,
+            representative_comments=[representative_comment],
+            llm_errors=[llm_error],
+        )
+    )
+
+    assert payload["run_mode"] == "hybrid"
+    assert payload["provider"] == "anthropic"
+    assert payload["representative_comments"][0]["segment_id"] == "support:neutral"
+    assert payload["llm_errors"][0]["step"] == "echo_items"
 
 
 def test_csv_export_includes_metadata_comments() -> None:

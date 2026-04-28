@@ -30,9 +30,9 @@ ETHICAL_USE_DISCLAIMER = (
 
 class AppSettings(EchoGridModel):
     llm_provider: LLMProvider = LLMProvider.MOCK
-    anthropic_api_key: str | None = None
+    trinity_api_key: str | None = None
+    trinity_base_url: str | None = None
     gemini_api_key: str | None = None
-    openai_api_key: str | None = None
     anthropic_reaction_model: str = "claude-haiku-4-5-20251001"
     anthropic_echo_model: str = "claude-sonnet-4-6"
     anthropic_report_model: str = "claude-sonnet-4-6"
@@ -50,9 +50,9 @@ class AppSettings(EchoGridModel):
         load_dotenv(PROJECT_ROOT / ".env")
         return cls(
             llm_provider=LLMProvider(os.getenv("ECHOGRID_LLM_PROVIDER", "mock")),
-            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY") or None,
+            trinity_api_key=os.getenv("TRINITY_API_KEY") or None,
+            trinity_base_url=os.getenv("TRINITY_BASE_URL") or None,
             gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
-            openai_api_key=os.getenv("OPENAI_API_KEY") or None,
             anthropic_reaction_model=os.getenv(
                 "ECHOGRID_ANTHROPIC_REACTION_MODEL",
                 "claude-haiku-4-5-20251001",

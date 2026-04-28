@@ -15,7 +15,18 @@ from src.analytics import (
     trust_average,
 )
 from src.config import ETHICAL_USE_DISCLAIMER, SYNTHETIC_SIMULATION_DISCLAIMER
-from src.schemas import AgentProfile, AgentReaction, EchoItem, EchoReaction, EchoSimulationResult, NewsEvent, NewsFrame
+from src.schemas import (
+    AgentProfile,
+    AgentReaction,
+    EchoItem,
+    EchoReaction,
+    EchoSimulationResult,
+    LLMGenerationError,
+    LLMProvider,
+    NewsEvent,
+    NewsFrame,
+    RepresentativeComment,
+)
 
 
 def agents_to_dataframe(agents: list[AgentProfile]) -> pd.DataFrame:
@@ -66,9 +77,15 @@ def simulation_summary_json(
     frames: list[NewsFrame],
     reactions: list[AgentReaction],
     echo_result: EchoSimulationResult | None = None,
+    run_mode: str = "mock",
+    provider: LLMProvider | None = None,
+    representative_comments: list[RepresentativeComment] | None = None,
+    llm_errors: list[LLMGenerationError] | None = None,
 ) -> str:
     payload = {
         "export_metadata": export_metadata("summary"),
+        "run_mode": run_mode,
+        "provider": provider.value if provider else None,
         "event": event.model_dump(mode="json"),
         "frames": [frame.model_dump(mode="json") for frame in frames],
         "initial_metrics": {
@@ -82,6 +99,11 @@ def simulation_summary_json(
         ),
         "echo_item_count": len(echo_result.echo_items) if echo_result else 0,
         "echo_reaction_count": len(echo_result.echo_reactions) if echo_result else 0,
+        "representative_comments": [
+            comment.model_dump(mode="json")
+            for comment in representative_comments or []
+        ],
+        "llm_errors": [error.model_dump(mode="json") for error in llm_errors or []],
     }
     return json.dumps(payload, indent=2)
 
