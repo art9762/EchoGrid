@@ -1,4 +1,6 @@
-from src.config import AppSettings, get_settings
+from pathlib import Path
+
+from src.config import DATA_DIR, AppSettings, get_settings
 from src.schemas import LLMProvider
 
 
@@ -28,3 +30,11 @@ def test_settings_read_available_api_keys(monkeypatch) -> None:
     assert settings.anthropic_api_key == "anthropic-test-key"
     assert settings.gemini_api_key == "gemini-test-key"
     assert settings.openai_api_key == "openai-test-key"
+
+
+def test_default_sqlite_database_path_is_not_committed() -> None:
+    settings = AppSettings()
+    gitignore = Path(".gitignore").read_text(encoding="utf-8")
+
+    assert settings.database_path == DATA_DIR / "echogrid.sqlite3"
+    assert "data/*.sqlite3" in gitignore

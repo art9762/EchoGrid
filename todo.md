@@ -20,20 +20,20 @@
   - `src/ui/tables.py`
   - `src/ui/charts.py`
 
-- [ ] Заменить дублирующиеся dataframe helpers в `app.py` на функции из `src/report.py`.
+- [x] Заменить дублирующиеся dataframe helpers в `app.py` на функции из `src/report.py`.
 
-- [ ] Добавить базовый app smoke test:
+- [x] Добавить базовый app smoke test:
   - импорт `app.py`
   - вызов `_run_simulation(...)` на маленькой популяции
   - проверка, что возвращаются agents, reactions, echo_result, simulation_id
 
-- [ ] Добавить performance check для mock mode:
+- [x] Добавить performance check для mock mode:
   - `1000` agents
   - `4` frames
   - `1` echo round
   - целевой runtime: комфортно для локального демо
 
-- [ ] Проверить, что SQLite-файл не коммитится и создается в `data/echogrid.sqlite3`.
+- [x] Проверить, что SQLite-файл не коммитится и создается в `data/echogrid.sqlite3`.
 
 ## P0 - привести интерфейс к demo-grade качеству
 
@@ -74,7 +74,7 @@
 
 ## P1 - Hybrid LLM mode
 
-- [ ] Добавить prompt loader:
+- [x] Добавить prompt loader:
   - файл: `src/prompts.py` или `src/utils.py`
   - функция: `load_prompt(name: str) -> str`
   - тест: prompt exists and contains JSON instruction
@@ -138,28 +138,28 @@
 
 ## P1 - сделать prompt-и сильнее
 
-- [ ] Переписать `reaction_prompt.txt` под strict schema:
+- [x] Переписать `reaction_prompt.txt` под strict schema:
   - перечислить все поля
   - указать допустимые enum values
   - указать диапазоны `0-100`
   - запретить markdown
   - запретить persuasion targeting
 
-- [ ] Переписать `echo_generation_prompt.txt`:
+- [x] Переписать `echo_generation_prompt.txt`:
   - request array of echo items
   - require 1-3 items per media actor
   - require realistic distortions
   - require distortion_level to match claim strength
 
-- [ ] Переписать `echo_reaction_prompt.txt`:
+- [x] Переписать `echo_reaction_prompt.txt`:
   - require stance_shift range
   - require trust_shift range
   - include bubble correction_resistance
   - include source credibility
 
-- [ ] Добавить `framing_prompt.txt` schema contract.
+- [x] Добавить `framing_prompt.txt` schema contract.
 
-- [ ] Добавить tests для prompt coverage:
+- [x] Добавить tests для prompt coverage:
   - каждое поле целевой схемы упомянуто в prompt
   - prompt содержит ethical limitations
   - prompt содержит `Return JSON only`
@@ -201,9 +201,9 @@
 
 - [ ] Добавить список прошлых simulations в sidebar.
 
-- [ ] Добавить `load_simulation(db_path, simulation_id)`.
+- [x] Добавить `load_simulation(db_path, simulation_id)`.
 
-- [ ] Добавить tests для загрузки:
+- [x] Добавить tests для загрузки:
   - save simulation
   - load simulation
   - loaded counts match saved counts
@@ -228,7 +228,7 @@
 
 ## P1 - ethical guardrails
 
-- [ ] Добавить central guardrails module:
+- [x] Добавить central guardrails module:
   - `src/guardrails.py`
   - prohibited use text
   - disallowed request classifier helpers
@@ -239,20 +239,20 @@
   - not targeting
   - not persuasion optimization
 
-- [ ] Добавить refusal behavior для опасных запросов:
+- [x] Добавить refusal behavior для опасных запросов:
   - "find best message to manipulate group X"
   - election targeting
   - vulnerable group targeting
   - harassment or radicalization
 
-- [ ] Добавить tests для guardrails:
+- [x] Добавить tests для guardrails:
   - manipulative targeting blocked
   - research framing allowed
   - export still contains disclaimer
 
-- [ ] Вшить disclaimer в summary JSON.
+- [x] Вшить disclaimer в summary JSON.
 
-- [ ] Вшить disclaimer в CSV/JSON export metadata.
+- [x] Вшить disclaimer в CSV/JSON export metadata.
 
 ## P1 - качество mock mode
 
@@ -262,19 +262,19 @@
   - income vs education
   - media_diet vs trust
 
-- [ ] Добавить age groups для Segment Explorer:
+- [x] Добавить age groups для Segment Explorer:
   - `18-24`
   - `25-34`
   - `35-49`
   - `50-64`
   - `65+`
 
-- [ ] Добавить institutional trust buckets:
+- [x] Добавить institutional trust buckets:
   - low
   - medium
   - high
 
-- [ ] Добавить social_bubble в reactions dataframe.
+- [x] Добавить social_bubble в reactions dataframe.
 
 - [ ] Улучшить `run_agent_reaction`:
   - topic-specific effects
@@ -451,4 +451,3 @@
 7. Polish dashboard visuals for conference demo.
 8. Add guardrails module and tests.
 9. Add demo script and screenshots.
-

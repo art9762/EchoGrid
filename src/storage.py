@@ -12,9 +12,12 @@ from src.schemas import (
     AgentProfile,
     AgentReaction,
     EchoSimulationResult,
+    EchoItem,
+    EchoReaction,
     MediaActor,
     NewsEvent,
     NewsFrame,
+    RoundSummary,
     SocialBubble,
 )
 from src.utils import stable_seed
@@ -148,6 +151,15 @@ def save_simulation(
         "reaction_count": len(reactions),
         "echo_item_count": len(echo_result.echo_items) if echo_result else 0,
         "bubble_assignments": bubble_assignments,
+        "amplification_metrics": echo_result.amplification_metrics if echo_result else {},
+        "final_reaction_state_by_agent": (
+            {
+                agent_id: state.model_dump(mode="json")
+                for agent_id, state in echo_result.final_reaction_state_by_agent.items()
+            }
+            if echo_result
+            else {}
+        ),
     }
 
     with sqlite3.connect(db_path) as connection:
@@ -219,6 +231,85 @@ def save_simulation(
                 ],
             )
     return simulation_id
+
+
+def load_simulation(db_path: str | Path, simulation_id: str) -> dict[str, Any]:
+    with sqlite3.connect(db_path) as connection:
+        simulation_row = connection.execute(
+            "select payload_json from simulations where simulation_id = ?",
+            (simulation_id,),
+        ).fetchone()
+        if simulation_row is None:
+            raise KeyError(f"Simulation not found: {simulation_id}")
+        metadata = json.loads(simulation_row[0])
+
+        event = _load_one(connection, "events", simulation_id, NewsEvent)
+        agents = _load_many(connection, "agents", simulation_id, AgentProfile)
+        frames = _load_many(connection, "frames", simulation_id, NewsFrame)
+        reactions = _load_many(connection, "reactions", simulation_id, AgentReaction)
+        media_actors = _load_many(connection, "media_actors", simulation_id, MediaActor)
+        bubbles = _load_many(connection, "social_bubbles", simulation_id, SocialBubble)
+        echo_items = _load_many(connection, "echo_items", simulation_id, EchoItem)
+        echo_reactions = _load_many(
+            connection, "echo_reactions", simulation_id, EchoReaction
+        )
+        round_summaries = _load_many(
+            connection, "echo_round_summaries", simulation_id, RoundSummary
+        )
+
+    echo_result = None
+    if echo_items or echo_reactions or round_summaries:
+        echo_result = EchoSimulationResult(
+            simulation_id=simulation_id,
+            echo_items=echo_items,
+            echo_reactions=echo_reactions,
+            round_summaries=round_summaries,
+            final_reaction_state_by_agent=metadata.get(
+                "final_reaction_state_by_agent", {}
+            ),
+            amplification_metrics=metadata.get("amplification_metrics", {}),
+        )
+
+    return {
+        "simulation_id": simulation_id,
+        "event": event,
+        "agents": agents,
+        "frames": frames,
+        "reactions": reactions,
+        "initial_reactions": reactions,
+        "media_actors": media_actors,
+        "bubbles": bubbles,
+        "bubble_assignments": metadata.get("bubble_assignments", {}),
+        "echo_result": echo_result,
+    }
+
+
+def _load_one(
+    connection: sqlite3.Connection,
+    table: str,
+    simulation_id: str,
+    model_type: type[Any],
+) -> Any:
+    row = connection.execute(
+        f"select payload_json from {table} where simulation_id = ?",
+        (simulation_id,),
+    ).fetchone()
+    if row is None:
+        raise KeyError(f"Missing {table} row for simulation: {simulation_id}")
+    return model_type.model_validate_json(row[0])
+
+
+def _load_many(
+    connection: sqlite3.Connection,
+    table: str,
+    simulation_id: str,
+    model_type: type[Any],
+) -> list[Any]:
+    rows = connection.execute(
+        f"select payload_json from {table} where simulation_id = ? order by rowid",
+        (simulation_id,),
+    ).fetchall()
+    return [model_type.model_validate_json(row[0]) for row in rows]
 
 
 def _json(model: Any) -> str:

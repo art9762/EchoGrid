@@ -70,3 +70,20 @@ def test_segment_breakdown_and_frame_comparison_return_rows() -> None:
     assert segments
     assert {"segment", "count", "average_share_likelihood"} <= set(segments[0])
     assert set(comparison) == {"neutral", "technocratic"}
+
+
+def test_segment_breakdown_supports_age_and_trust_buckets() -> None:
+    agents, reactions = sample_reactions()
+
+    age_segments = {
+        row["segment"] for row in segment_breakdown(reactions, agents, by_field="age_group")
+    }
+    trust_segments = {
+        row["segment"]
+        for row in segment_breakdown(
+            reactions, agents, by_field="institutional_trust_bucket"
+        )
+    }
+
+    assert age_segments <= {"18-24", "25-34", "35-49", "50-64", "65+"}
+    assert trust_segments <= {"low", "medium", "high"}

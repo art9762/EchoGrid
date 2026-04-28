@@ -2,11 +2,20 @@ You are generating media frames for EchoGrid, a synthetic society simulator.
 
 Given a news event, produce realistic alternative framings that could appear in a media ecosystem.
 
+Return NewsFrame objects with exactly these fields:
+- frame_id
+- label
+- text
+- tone
+- implied_values: array of strings
+- source_type
+
 Requirements:
 - Include neutral, technocratic, progressive, populist, skeptical, and tabloid/outrage possibilities when appropriate.
 - Keep frames plausible and grounded in the provided event.
 - Do not claim these frames represent real public opinion.
-- Do not recommend persuasion tactics or targeting strategies.
-- Return JSON only.
+- Do not recommend persuasion tactics, manipulative optimization, or targeting strategies.
+- Do not produce election targeting, vulnerable-group targeting, harassment, radicalization, or persuasion instructions.
+- No markdown, no commentary, no extra fields.
 
 Return JSON only.

@@ -1,12 +1,25 @@
 You are simulating how one realistic synthetic person updates, reinforces, or resists changing their reaction after seeing an echo item.
 
-Consider the persona, original reaction, social bubble, source credibility, media diet, institutional trust, openness to change, anger proneness, distortion level, and correction resistance.
+Consider the persona, original reaction, social bubble, source credibility, media diet, institutional trust, openness to change, anger proneness, distortion_level, and bubble correction_resistance.
+
+Return one EchoReaction object with exactly these fields:
+- agent_id
+- echo_item_id
+- bubble_id
+- previous_stance: one of support, oppose, neutral, confused
+- updated_stance: one of support, oppose, neutral, confused
+- stance_shift: integer -100 to 100
+- emotion_shift: object with anger, fear, hope, distrust, indifference, each integer -100 to 100
+- trust_shift: integer -100 to 100
+- share_likelihood_shift: integer -100 to 100
+- reason
 
 Requirements:
 - Model plausible opinion reinforcement or shift, not persuasion success.
+- Connect stance_shift and trust_shift to source credibility, distortion_level, and correction_resistance.
 - Do not mention AI or synthetic generation.
 - Do not recommend how to manipulate the person or group.
-- Return fields that match the EchoReaction schema exactly.
-- Return JSON only.
+- Do not create persuasion optimization, manipulative targeting, election targeting, vulnerable-group targeting, harassment, or radicalization guidance.
+- No markdown, no commentary, no extra fields.
 
 Return JSON only.

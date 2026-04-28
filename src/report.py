@@ -7,25 +7,42 @@ import json
 import pandas as pd
 
 from src.analytics import (
+    age_group,
     emotion_averages,
+    institutional_trust_bucket,
     share_likelihood_distribution,
     stance_distribution,
     trust_average,
 )
+from src.config import ETHICAL_USE_DISCLAIMER, SYNTHETIC_SIMULATION_DISCLAIMER
 from src.schemas import AgentProfile, AgentReaction, EchoItem, EchoReaction, EchoSimulationResult, NewsEvent, NewsFrame
 
 
 def agents_to_dataframe(agents: list[AgentProfile]) -> pd.DataFrame:
-    return pd.DataFrame([agent.model_dump(mode="json") for agent in agents])
+    rows = []
+    for agent in agents:
+        row = agent.model_dump(mode="json")
+        row["age_group"] = age_group(agent.age)
+        row["institutional_trust_bucket"] = institutional_trust_bucket(
+            agent.institutional_trust
+        )
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
-def reactions_to_dataframe(reactions: list[AgentReaction]) -> pd.DataFrame:
+def reactions_to_dataframe(
+    reactions: list[AgentReaction],
+    bubble_assignments: dict[str, list[str]] | None = None,
+) -> pd.DataFrame:
+    bubble_by_agent = _bubble_by_agent(bubble_assignments or {})
     rows = []
     for reaction in reactions:
         row = reaction.model_dump(mode="json")
         emotions = row.pop("emotions")
         row.update({f"emotion_{key}": value for key, value in emotions.items()})
         row["emotional_intensity"] = reaction.emotional_intensity
+        if bubble_assignments is not None:
+            row["social_bubble"] = bubble_by_agent.get(reaction.agent_id)
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -51,6 +68,7 @@ def simulation_summary_json(
     echo_result: EchoSimulationResult | None = None,
 ) -> str:
     payload = {
+        "export_metadata": export_metadata("summary"),
         "event": event.model_dump(mode="json"),
         "frames": [frame.model_dump(mode="json") for frame in frames],
         "initial_metrics": {
@@ -66,3 +84,31 @@ def simulation_summary_json(
         "echo_reaction_count": len(echo_result.echo_reactions) if echo_result else 0,
     }
     return json.dumps(payload, indent=2)
+
+
+def dataframe_to_csv_export(frame: pd.DataFrame, export_name: str) -> str:
+    metadata = export_metadata(export_name)
+    header = "\n".join(
+        [
+            f"# EchoGrid export: {metadata['export_name']}",
+            f"# {metadata['synthetic_simulation_disclaimer']}",
+            f"# {metadata['ethical_use_disclaimer']}",
+        ]
+    )
+    return f"{header}\n{frame.to_csv(index=False)}"
+
+
+def export_metadata(export_name: str) -> dict[str, str]:
+    return {
+        "export_name": export_name,
+        "synthetic_simulation_disclaimer": SYNTHETIC_SIMULATION_DISCLAIMER,
+        "ethical_use_disclaimer": ETHICAL_USE_DISCLAIMER,
+    }
+
+
+def _bubble_by_agent(assignments: dict[str, list[str]]) -> dict[str, str]:
+    return {
+        agent_id: bubble_id
+        for bubble_id, agent_ids in assignments.items()
+        for agent_id in agent_ids
+    }

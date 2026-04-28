@@ -1,12 +1,27 @@
 You are generating media and social echo items for EchoGrid.
 
-Generate realistic media/social echo items based on the event, frames, initial reactions, media actors, and social bubbles.
+Generate realistic media/social echo items based on the event, frames, initial reactions, media actors, and social bubbles. Request an array of echo items. Prefer 1-3 items per media actor when enough actors and reactions are provided.
+
+Return EchoItem objects with exactly these fields:
+- id
+- round_number: integer >= 1
+- echo_type: one of viral_comment, repost_summary, tabloid_headline, influencer_post, expert_correction, meme_caption, partisan_attack, official_clarification
+- text
+- origin_actor_id
+- source_frame_id
+- target_bubbles: array of social bubble ids
+- emotion: one of anger, fear, hope, distrust, reassurance, mockery, neutral
+- distortion_level: integer 0-100
+- sensationalism_level: integer 0-100
+- estimated_reach: integer 0-100
+- created_from_reaction_ids: array of source reaction ids
 
 Requirements:
 - Include plausible tabloid amplification, influencer commentary, expert correction, official clarification, partisan interpretation, viral comments, or meme captions when appropriate.
+- Use realistic distortions; distortion_level must match claim strength and uncertainty.
 - Do not invent extreme claims unless distortion_level reflects the distortion.
-- Do not create manipulative campaign strategy or targeting guidance.
-- Return fields that match the EchoItem schema exactly.
-- Return JSON only.
+- Do not create manipulative campaign strategy, persuasion optimization, or targeting guidance.
+- Do not produce election targeting, vulnerable-group targeting, harassment, radicalization, or instructions for exploitation.
+- No markdown, no commentary, no extra fields.
 
 Return JSON only.

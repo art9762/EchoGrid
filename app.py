@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import pandas as pd
@@ -22,6 +21,14 @@ from src.framing import generate_framings
 from src.media_ecosystem import default_media_actors
 from src.population import generate_population
 from src.reaction_engine import run_initial_reactions
+from src.report import (
+    agents_to_dataframe,
+    dataframe_to_csv_export,
+    echo_items_to_dataframe,
+    echo_reactions_to_dataframe,
+    reactions_to_dataframe,
+    simulation_summary_json,
+)
 from src.scenarios import demo_scenarios
 from src.schemas import NewsEvent, PopulationConfig
 from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
@@ -157,6 +164,7 @@ def _run_simulation(
         "event": event,
         "frames": frames,
         "agents": agents,
+        "reactions": initial_reactions,
         "initial_reactions": initial_reactions,
         "media_actors": media_actors,
         "bubbles": bubbles,
@@ -227,7 +235,7 @@ def _overview_tab(simulation: dict[str, Any]) -> None:
 
 
 def _population_tab(simulation: dict[str, Any]) -> None:
-    agents_df = _agents_df(simulation["agents"])
+    agents_df = agents_to_dataframe(simulation["agents"])
     c1, c2 = st.columns(2)
     c1.plotly_chart(px.histogram(agents_df, x="age", nbins=20), use_container_width=True)
     c2.plotly_chart(px.histogram(agents_df, x="institutional_trust", nbins=20), use_container_width=True)
@@ -278,7 +286,11 @@ def _initial_reaction_tab(simulation: dict[str, Any]) -> None:
         [{"stance": key, "percent": value} for key, value in stance_distribution(reactions).items()]
     )
     st.plotly_chart(px.bar(stance_df, x="stance", y="percent"), use_container_width=True)
-    st.dataframe(_reactions_df(reactions).head(150), use_container_width=True, hide_index=True)
+    st.dataframe(
+        reactions_to_dataframe(reactions, _bubble_assignments(simulation)).head(150),
+        use_container_width=True,
+        hide_index=True,
+    )
 
 
 def _timeline_tab(simulation: dict[str, Any]) -> None:
@@ -294,9 +306,9 @@ def _timeline_tab(simulation: dict[str, Any]) -> None:
     echo_result = simulation["echo_result"]
     if echo_result:
         st.subheader("Round 3: Echo items")
-        st.dataframe(_echo_items_df(echo_result.echo_items), use_container_width=True, hide_index=True)
+        st.dataframe(echo_items_to_dataframe(echo_result.echo_items), use_container_width=True, hide_index=True)
         st.subheader("Round 4: Echo reactions")
-        st.dataframe(_echo_reactions_df(echo_result.echo_reactions).head(150), use_container_width=True, hide_index=True)
+        st.dataframe(echo_reactions_to_dataframe(echo_result.echo_reactions).head(150), use_container_width=True, hide_index=True)
 
 
 def _echo_items_tab(simulation: dict[str, Any]) -> None:
@@ -304,7 +316,7 @@ def _echo_items_tab(simulation: dict[str, Any]) -> None:
     if not echo_result:
         st.write("Echo simulation was disabled.")
         return
-    df = _echo_items_df(echo_result.echo_items)
+    df = echo_items_to_dataframe(echo_result.echo_items)
     echo_types = st.multiselect("Echo type", sorted(df["echo_type"].unique()), default=sorted(df["echo_type"].unique()))
     filtered = df[df["echo_type"].isin(echo_types)]
     st.dataframe(filtered, use_container_width=True, hide_index=True)
@@ -364,6 +376,8 @@ def _segment_tab(simulation: dict[str, Any]) -> None:
         "Group by",
         [
             "income_level",
+            "age_group",
+            "institutional_trust_bucket",
             "education_level",
             "location_type",
             "economic_position",
@@ -381,78 +395,72 @@ def _segment_tab(simulation: dict[str, Any]) -> None:
 
 
 def _comments_tab(simulation: dict[str, Any]) -> None:
-    df = _reactions_df(simulation["initial_reactions"])
+    df = reactions_to_dataframe(
+        simulation["initial_reactions"], _bubble_assignments(simulation)
+    )
     stance = st.multiselect("Stance", sorted(df["stance"].unique()), default=sorted(df["stance"].unique()))
     filtered = df[df["stance"].isin(stance)]
     st.dataframe(
-        filtered[["agent_id", "frame_id", "stance", "likely_comment", "main_reason"]].head(300),
+        filtered[
+            [
+                "agent_id",
+                "frame_id",
+                "social_bubble",
+                "stance",
+                "likely_comment",
+                "main_reason",
+            ]
+        ].head(300),
         use_container_width=True,
         hide_index=True,
     )
 
 
 def _export_tab(simulation: dict[str, Any]) -> None:
-    agents_df = _agents_df(simulation["agents"])
-    reactions_df = _reactions_df(simulation["initial_reactions"])
-    st.download_button("Export agents CSV", agents_df.to_csv(index=False), "agents.csv")
-    st.download_button("Export reactions CSV", reactions_df.to_csv(index=False), "reactions.csv")
+    agents_df = agents_to_dataframe(simulation["agents"])
+    reactions_df = reactions_to_dataframe(
+        simulation["initial_reactions"], _bubble_assignments(simulation)
+    )
+    st.download_button(
+        "Export agents CSV",
+        dataframe_to_csv_export(agents_df, "agents"),
+        "agents.csv",
+    )
+    st.download_button(
+        "Export reactions CSV",
+        dataframe_to_csv_export(reactions_df, "reactions"),
+        "reactions.csv",
+    )
 
     echo_result = simulation["echo_result"]
     if echo_result:
-        echo_items_df = _echo_items_df(echo_result.echo_items)
-        echo_reactions_df = _echo_reactions_df(echo_result.echo_reactions)
-        st.download_button("Export echo items CSV", echo_items_df.to_csv(index=False), "echo_items.csv")
-        st.download_button("Export echo reactions CSV", echo_reactions_df.to_csv(index=False), "echo_reactions.csv")
+        echo_items_df = echo_items_to_dataframe(echo_result.echo_items)
+        echo_reactions_df = echo_reactions_to_dataframe(echo_result.echo_reactions)
+        st.download_button(
+            "Export echo items CSV",
+            dataframe_to_csv_export(echo_items_df, "echo_items"),
+            "echo_items.csv",
+        )
+        st.download_button(
+            "Export echo reactions CSV",
+            dataframe_to_csv_export(echo_reactions_df, "echo_reactions"),
+            "echo_reactions.csv",
+        )
     st.download_button(
         "Export summary JSON",
-        json.dumps(_summary_payload(simulation), indent=2),
+        simulation_summary_json(
+            event=simulation["event"],
+            frames=simulation["frames"],
+            reactions=simulation["initial_reactions"],
+            echo_result=echo_result,
+        ),
         "summary.json",
         mime="application/json",
     )
 
 
-def _agents_df(agents) -> pd.DataFrame:
-    return pd.DataFrame([agent.model_dump(mode="json") for agent in agents])
-
-
-def _reactions_df(reactions) -> pd.DataFrame:
-    rows = []
-    for reaction in reactions:
-        row = reaction.model_dump(mode="json")
-        emotions = row.pop("emotions")
-        row.update({f"emotion_{key}": value for key, value in emotions.items()})
-        row["emotional_intensity"] = reaction.emotional_intensity
-        rows.append(row)
-    return pd.DataFrame(rows)
-
-
-def _echo_items_df(items) -> pd.DataFrame:
-    return pd.DataFrame([item.model_dump(mode="json") for item in items])
-
-
-def _echo_reactions_df(reactions) -> pd.DataFrame:
-    rows = []
-    for reaction in reactions:
-        row = reaction.model_dump(mode="json")
-        shifts = row.pop("emotion_shift")
-        row.update({f"{key}_shift": value for key, value in shifts.items()})
-        rows.append(row)
-    return pd.DataFrame(rows)
-
-
-def _summary_payload(simulation: dict[str, Any]) -> dict[str, Any]:
-    echo_result = simulation["echo_result"]
-    return {
-        "event": simulation["event"].model_dump(mode="json"),
-        "frames": [frame.model_dump(mode="json") for frame in simulation["frames"]],
-        "initial_metrics": {
-            "stance_distribution": stance_distribution(simulation["initial_reactions"]),
-            "emotion_averages": emotion_averages(simulation["initial_reactions"]),
-            "trust_average": trust_average(simulation["initial_reactions"]),
-            "share_likelihood_distribution": share_likelihood_distribution(simulation["initial_reactions"]),
-        },
-        "amplification_metrics": echo_result.amplification_metrics if echo_result else {},
-    }
+def _bubble_assignments(simulation: dict[str, Any]) -> dict[str, list[str]]:
+    return simulation.get("assignments") or simulation.get("bubble_assignments") or {}
 
 
 if __name__ == "__main__":

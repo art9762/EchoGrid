@@ -19,6 +19,34 @@ STANCE_SIGN = {
 }
 
 
+def age_group(age: int) -> str:
+    if age <= 24:
+        return "18-24"
+    if age <= 34:
+        return "25-34"
+    if age <= 49:
+        return "35-49"
+    if age <= 64:
+        return "50-64"
+    return "65+"
+
+
+def institutional_trust_bucket(trust: int) -> str:
+    if trust < 34:
+        return "low"
+    if trust < 67:
+        return "medium"
+    return "high"
+
+
+def segment_value(agent: AgentProfile, by_field: str) -> object:
+    if by_field == "age_group":
+        return age_group(agent.age)
+    if by_field == "institutional_trust_bucket":
+        return institutional_trust_bucket(agent.institutional_trust)
+    return getattr(agent, by_field)
+
+
 def stance_distribution(reactions: list[AgentReaction]) -> dict[str, float]:
     total = len(reactions)
     if total == 0:
@@ -86,7 +114,7 @@ def segment_breakdown(
         agent = agent_lookup.get(reaction.agent_id)
         if not agent:
             continue
-        segment = getattr(agent, by_field)
+        segment = segment_value(agent, by_field)
         rows.append(
             {
                 "segment": segment,

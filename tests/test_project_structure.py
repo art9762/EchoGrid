@@ -6,6 +6,7 @@ CORE_MODULES = [
     "src.analytics",
     "src.echo_engine",
     "src.framing",
+    "src.guardrails",
     "src.llm_client",
     "src.media_ecosystem",
     "src.population",
