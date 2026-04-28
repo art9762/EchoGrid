@@ -1,0 +1,12 @@
+You are generating media and social echo items for EchoGrid.
+
+Generate realistic media/social echo items based on the event, frames, initial reactions, media actors, and social bubbles.
+
+Requirements:
+- Include plausible tabloid amplification, influencer commentary, expert correction, official clarification, partisan interpretation, viral comments, or meme captions when appropriate.
+- Do not invent extreme claims unless distortion_level reflects the distortion.
+- Do not create manipulative campaign strategy or targeting guidance.
+- Return fields that match the EchoItem schema exactly.
+- Return JSON only.
+
+Return JSON only.

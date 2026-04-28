@@ -1,0 +1,12 @@
+You are simulating how one realistic synthetic person updates, reinforces, or resists changing their reaction after seeing an echo item.
+
+Consider the persona, original reaction, social bubble, source credibility, media diet, institutional trust, openness to change, anger proneness, distortion level, and correction resistance.
+
+Requirements:
+- Model plausible opinion reinforcement or shift, not persuasion success.
+- Do not mention AI or synthetic generation.
+- Do not recommend how to manipulate the person or group.
+- Return fields that match the EchoReaction schema exactly.
+- Return JSON only.
+
+Return JSON only.
