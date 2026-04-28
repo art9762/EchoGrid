@@ -135,6 +135,8 @@ def save_simulation(
     bubbles: list[SocialBubble],
     bubble_assignments: dict[str, list[str]],
     echo_result: EchoSimulationResult | None = None,
+    seed: int | None = None,
+    provider: str = "mock",
 ) -> str:
     init_database(db_path)
     simulation_id = (
@@ -145,7 +147,14 @@ def save_simulation(
     created_at = datetime.now(UTC).isoformat()
     payload = {
         "simulation_id": simulation_id,
+        "created_at": created_at,
         "event_title": event.title,
+        "country": event.country,
+        "topic": event.topic,
+        "source_type": event.source_type,
+        "population_size": len(agents),
+        "seed": seed,
+        "provider": provider,
         "agent_count": len(agents),
         "frame_count": len(frames),
         "reaction_count": len(reactions),
@@ -231,6 +240,63 @@ def save_simulation(
                 ],
             )
     return simulation_id
+
+
+def list_simulations(db_path: str | Path, limit: int = 25) -> list[dict[str, Any]]:
+    path = Path(db_path)
+    if not path.exists():
+        return []
+
+    init_database(path)
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(
+            """
+            select simulation_id, created_at, payload_json
+            from simulations
+            order by created_at desc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    summaries: list[dict[str, Any]] = []
+    for simulation_id, created_at, payload_json in rows:
+        payload = json.loads(payload_json)
+        summaries.append(
+            {
+                "simulation_id": simulation_id,
+                "created_at": payload.get("created_at", created_at),
+                "event_title": payload.get("event_title", "Untitled event"),
+                "country": payload.get("country", ""),
+                "topic": payload.get("topic", ""),
+                "source_type": payload.get("source_type", ""),
+                "population_size": payload.get(
+                    "population_size", payload.get("agent_count", 0)
+                ),
+                "seed": payload.get("seed"),
+                "provider": payload.get("provider", "mock"),
+                "frame_count": payload.get("frame_count", 0),
+                "reaction_count": payload.get("reaction_count", 0),
+                "echo_item_count": payload.get("echo_item_count", 0),
+            }
+        )
+    return summaries
+
+
+def delete_simulation(db_path: str | Path, simulation_id: str) -> bool:
+    path = Path(db_path)
+    if not path.exists():
+        return False
+
+    with sqlite3.connect(path) as connection:
+        for table in CHILD_TABLES:
+            connection.execute(
+                f"delete from {table} where simulation_id = ?", (simulation_id,)
+            )
+        cursor = connection.execute(
+            "delete from simulations where simulation_id = ?", (simulation_id,)
+        )
+    return cursor.rowcount > 0
 
 
 def load_simulation(db_path: str | Path, simulation_id: str) -> dict[str, Any]:

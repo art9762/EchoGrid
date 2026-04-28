@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import zipfile
+from io import BytesIO
+from typing import Any
 
 import pandas as pd
 
@@ -120,12 +123,83 @@ def dataframe_to_csv_export(frame: pd.DataFrame, export_name: str) -> str:
     return f"{header}\n{frame.to_csv(index=False)}"
 
 
+def simulation_export_zip(simulation: dict[str, Any]) -> bytes:
+    echo_result = simulation.get("echo_result")
+    bubble_assignments = (
+        simulation.get("bubble_assignments") or simulation.get("assignments") or {}
+    )
+    files = {
+        "README.txt": _archive_readme(),
+        "summary.json": simulation_summary_json(
+            event=simulation["event"],
+            frames=simulation["frames"],
+            reactions=simulation["initial_reactions"],
+            echo_result=echo_result,
+        ),
+        "agents.csv": dataframe_to_csv_export(
+            agents_to_dataframe(simulation["agents"]), "agents"
+        ),
+        "reactions.csv": dataframe_to_csv_export(
+            reactions_to_dataframe(
+                simulation["initial_reactions"],
+                bubble_assignments=bubble_assignments,
+            ),
+            "reactions",
+        ),
+        "media_actors.csv": dataframe_to_csv_export(
+            pd.DataFrame(
+                [actor.model_dump(mode="json") for actor in simulation["media_actors"]]
+            ),
+            "media_actors",
+        ),
+        "social_bubbles.csv": dataframe_to_csv_export(
+            pd.DataFrame(
+                [bubble.model_dump(mode="json") for bubble in simulation["bubbles"]]
+            ),
+            "social_bubbles",
+        ),
+    }
+    if echo_result:
+        files["echo_items.csv"] = dataframe_to_csv_export(
+            echo_items_to_dataframe(echo_result.echo_items), "echo_items"
+        )
+        files["echo_reactions.csv"] = dataframe_to_csv_export(
+            echo_reactions_to_dataframe(echo_result.echo_reactions), "echo_reactions"
+        )
+
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for filename, content in files.items():
+            archive.writestr(filename, content)
+    return buffer.getvalue()
+
+
 def export_metadata(export_name: str) -> dict[str, str]:
     return {
         "export_name": export_name,
         "synthetic_simulation_disclaimer": SYNTHETIC_SIMULATION_DISCLAIMER,
         "ethical_use_disclaimer": ETHICAL_USE_DISCLAIMER,
     }
+
+
+def _archive_readme() -> str:
+    return "\n".join(
+        [
+            "EchoGrid export bundle",
+            "",
+            SYNTHETIC_SIMULATION_DISCLAIMER,
+            ETHICAL_USE_DISCLAIMER,
+            "",
+            "Files:",
+            "- summary.json: event, frames, initial metrics, and echo metrics.",
+            "- agents.csv: synthetic agent profiles.",
+            "- reactions.csv: initial synthetic reactions.",
+            "- media_actors.csv: media ecosystem actors used in the run.",
+            "- social_bubbles.csv: social bubble definitions used in the run.",
+            "- echo_items.csv: generated echo items, when echo simulation was enabled.",
+            "- echo_reactions.csv: second-round synthetic reactions, when enabled.",
+        ]
+    )
 
 
 def _bubble_by_agent(assignments: dict[str, list[str]]) -> dict[str, str]:

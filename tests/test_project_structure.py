@@ -55,3 +55,28 @@ def test_public_repository_metadata_exists() -> None:
     assert license_text.startswith("MIT License")
     assert "## License" in readme_text
     assert "LICENSE" in readme_text
+
+
+def test_release_developer_files_exist() -> None:
+    makefile = Path("Makefile").read_text(encoding="utf-8")
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+
+    assert "test:" in makefile
+    assert "run:" in makefile
+    assert "[tool.pytest.ini_options]" in pyproject
+    assert "tests" in pyproject
+
+
+def test_release_documentation_exists() -> None:
+    docs = [
+        Path("docs/architecture.md"),
+        Path("docs/ethics.md"),
+        Path("docs/demo-script.md"),
+        Path("docs/AI_HANDOFF.md"),
+        Path("docs/superpowers/plans/2026-04-28-release-hardening.md"),
+    ]
+
+    for doc_path in docs:
+        content = doc_path.read_text(encoding="utf-8")
+        assert "EchoGrid" in content
+        assert "synthetic" in content.lower()

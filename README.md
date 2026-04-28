@@ -20,15 +20,15 @@ Results are synthetic simulation outputs. They should be treated as hypothesis-g
 
 EchoGrid must not be used to optimize manipulative persuasion, political targeting, harassment, radicalization, or targeting vulnerable groups.
 
-## Current MVP Status
+## Release Status
 
-The current MVP runs fully in deterministic mock mode without API keys. It also includes a provider abstraction for:
+The current release runs fully in deterministic mock mode without API keys. It also includes a provider abstraction for:
 
 - Anthropic / Claude via Trinity
 - Gemini
 - OpenAI / ChatGPT via Trinity
 
-The full agent-scale pipeline currently uses mock mode by default. LLM provider calls are scaffolded for later integration into selected generation steps.
+The full agent-scale pipeline currently uses mock mode by default. LLM provider calls are scaffolded for later integration into selected generation steps. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/ZIP exports, automated tests, and developer handoff docs.
 
 ## Installation
 
@@ -57,13 +57,23 @@ Default mock mode does not require any key.
 
 When `ECHOGRID_LLM_PROVIDER` is `anthropic` or `openai`, EchoGrid uses the Trinity gateway through the OpenAI-compatible chat completions client. Gemini remains a direct provider route.
 
+## Developer Commands
+
+```bash
+make install
+make test
+make smoke
+make run
+make clean
+```
+
 ## Run
 
 ```bash
 .venv/bin/streamlit run app.py
 ```
 
-The app opens a Streamlit dashboard with setup controls, synthetic population charts, media ecosystem tables, social bubbles, initial reactions, echo timeline, amplification metrics, comments, and exports.
+The app opens a Streamlit dashboard with setup controls, previous-run loading, synthetic population charts, media ecosystem tables, social bubbles, initial reactions, echo timeline, amplification metrics, comments, and exports.
 
 ## Run Modes
 
@@ -134,6 +144,9 @@ Dashboard export supports:
 - echo items CSV
 - echo reactions CSV
 - summary JSON
+- full ZIP bundle with README, CSVs, and summary JSON
+
+Saved simulations can be loaded or deleted from the sidebar. The SQLite file is local runtime data and is ignored by git.
 
 ## Tests
 
@@ -143,6 +156,14 @@ Dashboard export supports:
 
 The test suite covers schemas, configuration, population generation, framings, media actors, social bubbles, mock reactions, analytics, echo simulation, hybrid LLM orchestration, storage, exports, scenarios, and provider scaffolding.
 
+## Release Documentation
+
+- `docs/architecture.md` explains module responsibilities and the synthetic simulation pipeline.
+- `docs/ethics.md` documents allowed and disallowed uses.
+- `docs/demo-script.md` gives a conference-style demo path.
+- `docs/AI_HANDOFF.md` summarizes current state and next work for other models and developers.
+- `docs/superpowers/plans/2026-04-28-release-hardening.md` records the release-hardening plan and verification flow.
+
 ## Limitations
 
 - Mock mode is plausible and deterministic, not scientifically calibrated.
@@ -150,6 +171,7 @@ The test suite covers schemas, configuration, population generation, framings, m
 - Current echo simulation supports one echo round.
 - Hybrid mode uses bounded artifact-level LLM calls; full per-agent LLM simulation is not implemented.
 - Network diffusion is bubble-based, not graph-based.
+- Previous-run storage uses JSON payloads for MVP flexibility rather than migration-managed analytical tables.
 
 ## License
 

@@ -1,5 +1,9 @@
 import json
 import sqlite3
+import zipfile
+from io import BytesIO
+
+import pytest
 
 from src.echo_engine import run_echo_simulation
 from src.framing import generate_framings
@@ -11,6 +15,7 @@ from src.report import (
     dataframe_to_csv_export,
     echo_items_to_dataframe,
     reactions_to_dataframe,
+    simulation_export_zip,
     simulation_summary_json,
 )
 from src.schemas import (
@@ -22,7 +27,13 @@ from src.schemas import (
     Stance,
 )
 from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
-from src.storage import init_database, load_simulation, save_simulation
+from src.storage import (
+    delete_simulation,
+    init_database,
+    list_simulations,
+    load_simulation,
+    save_simulation,
+)
 
 
 def sample_run():
@@ -110,6 +121,39 @@ def test_load_simulation_restores_saved_run_counts(tmp_path) -> None:
     assert len(loaded["echo_result"].echo_reactions) == len(echo_result.echo_reactions)
 
 
+def test_list_simulations_returns_metadata_and_delete_removes_run(tmp_path) -> None:
+    db_path = tmp_path / "echogrid.sqlite3"
+    event, agents, frames, reactions, actors, bubbles, assignments, echo_result = sample_run()
+    simulation_id = save_simulation(
+        db_path=db_path,
+        event=event,
+        agents=agents,
+        frames=frames,
+        reactions=reactions,
+        media_actors=actors,
+        bubbles=bubbles,
+        bubble_assignments=assignments,
+        echo_result=echo_result,
+        seed=22,
+        provider="mock",
+    )
+
+    summaries = list_simulations(db_path)
+
+    assert len(summaries) == 1
+    assert summaries[0]["simulation_id"] == simulation_id
+    assert summaries[0]["event_title"] == "Housing policy reform"
+    assert summaries[0]["country"] == "United States"
+    assert summaries[0]["topic"] == "housing"
+    assert summaries[0]["population_size"] == len(agents)
+    assert summaries[0]["seed"] == 22
+    assert summaries[0]["provider"] == "mock"
+    assert delete_simulation(db_path, simulation_id) is True
+    assert list_simulations(db_path) == []
+    with pytest.raises(KeyError):
+        load_simulation(db_path, simulation_id)
+
+
 def test_report_helpers_return_exportable_data() -> None:
     event, agents, frames, reactions, _, _, assignments, echo_result = sample_run()
 
@@ -176,3 +220,37 @@ def test_csv_export_includes_metadata_comments() -> None:
     assert csv_text.startswith("# EchoGrid export: agents")
     assert "not a real poll" in csv_text.splitlines()[1]
     assert "agent_id" in csv_text or "id" in csv_text
+
+
+def test_simulation_export_zip_contains_release_artifacts() -> None:
+    event, agents, frames, reactions, actors, bubbles, assignments, echo_result = sample_run()
+    archive = simulation_export_zip(
+        {
+            "event": event,
+            "frames": frames,
+            "agents": agents,
+            "initial_reactions": reactions,
+            "media_actors": actors,
+            "bubbles": bubbles,
+            "bubble_assignments": assignments,
+            "echo_result": echo_result,
+        }
+    )
+
+    with zipfile.ZipFile(BytesIO(archive)) as zf:
+        names = set(zf.namelist())
+        summary = json.loads(zf.read("summary.json"))
+        agents_csv = zf.read("agents.csv").decode("utf-8")
+        readme = zf.read("README.txt").decode("utf-8")
+
+    assert {
+        "README.txt",
+        "summary.json",
+        "agents.csv",
+        "reactions.csv",
+        "echo_items.csv",
+        "echo_reactions.csv",
+    } <= names
+    assert summary["event"]["title"] == "Housing policy reform"
+    assert agents_csv.startswith("# EchoGrid export: agents")
+    assert "not a real poll" in readme

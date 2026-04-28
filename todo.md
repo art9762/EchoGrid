@@ -52,7 +52,7 @@
   - читаемые labels
   - не перегружать графики цветом
 
-- [ ] Добавить табличные фильтры:
+- [x] Добавить табличные фильтры:
   - reactions by frame
   - reactions by stance
   - echo items by echo_type
@@ -61,16 +61,15 @@
 
 - [x] Добавить progress/status messages при запуске симуляции:
   - generating population
-  - generating frames
   - running reactions
-  - generating echo items
-  - running echo reactions
-  - saving/exporting
+  - preparing media ecosystem and bubbles
+  - generating echo items and reactions
+  - saving simulation and export metadata
 
-- [ ] Добавить clear empty states:
+- [x] Добавить clear empty states:
   - echo disabled
   - no filtered rows
-  - no previous simulation loaded
+  - no previous simulation saved
 
 ## P1 - Hybrid LLM mode
 
@@ -198,7 +197,7 @@
 
 ## P1 - storage и загрузка прошлых прогонов
 
-- [ ] Добавить список прошлых simulations в sidebar.
+- [x] Добавить список прошлых simulations в sidebar.
 
 - [x] Добавить `load_simulation(db_path, simulation_id)`.
 
@@ -207,7 +206,7 @@
   - load simulation
   - loaded counts match saved counts
 
-- [ ] Добавить metadata в `simulations` table:
+- [x] Добавить metadata в `simulations` payload:
   - event title
   - country
   - topic
@@ -216,9 +215,9 @@
   - provider
   - created_at
 
-- [ ] Добавить кнопку delete previous simulation.
+- [x] Добавить кнопку delete previous simulation.
 
-- [ ] Добавить export ZIP:
+- [x] Добавить export ZIP:
   - agents.csv
   - reactions.csv
   - echo_items.csv
@@ -374,11 +373,13 @@
 
 ## P2 - docs and presentation material
 
-- [ ] Добавить `docs/architecture.md`.
+- [x] Добавить `docs/architecture.md`.
 
-- [ ] Добавить `docs/ethics.md`.
+- [x] Добавить `docs/ethics.md`.
 
-- [ ] Добавить `docs/demo-script.md`.
+- [x] Добавить `docs/demo-script.md`.
+
+- [x] Добавить `docs/AI_HANDOFF.md` для других моделей и разработчиков.
 
 - [ ] Добавить screenshots в README.
 
@@ -398,13 +399,13 @@
 
 ## P2 - developer experience
 
-- [ ] Добавить `Makefile`:
+- [x] Добавить `Makefile`:
   - `make install`
   - `make test`
   - `make run`
   - `make clean`
 
-- [ ] Добавить `pyproject.toml` для pytest config и tool settings.
+- [x] Добавить `pyproject.toml` для pytest config и tool settings.
 
 - [ ] Добавить formatting/linting:
   - ruff
