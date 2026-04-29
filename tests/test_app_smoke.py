@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from time import perf_counter
+from types import SimpleNamespace
 
 import app
 from src.framing import generate_framings
 from src.schemas import (
+    AgentReaction,
     EchoItem,
     EchoType,
     EmotionLabel,
+    Emotions,
     LLMProvider,
     NewsEvent,
     NewsFrame,
@@ -80,6 +82,29 @@ class FakeHybridClient:
             )
         ]
 
+    def generate_reaction_json(self, prompt: str):
+        frame_id = "llm-neutral"
+        agent_id = "agent-00001"
+        if "agent-00002" in prompt:
+            agent_id = "agent-00002"
+        return AgentReaction(
+            agent_id=agent_id,
+            frame_id=frame_id,
+            stance=Stance.SUPPORT,
+            stance_strength=82,
+            emotions=Emotions(anger=8, fear=12, hope=68, distrust=10, indifference=14),
+            trust_in_source=74,
+            perceived_personal_impact=41,
+            perceived_group_impact=45,
+            share_likelihood=39,
+            comment_likelihood=31,
+            discussion_likelihood=33,
+            triggered_values=["stability"],
+            main_reason="The LLM sample sees the update as guarded but useful.",
+            likely_comment="This seems reasonable if the details are transparent.",
+            what_could_change_mind="Evidence of poor implementation.",
+        )
+
 
 def test_run_simulation_returns_core_outputs(tmp_path, monkeypatch) -> None:
     _use_temp_database(monkeypatch, tmp_path)
@@ -125,6 +150,55 @@ def test_run_simulation_hybrid_uses_gateway_artifacts(tmp_path, monkeypatch) -> 
     assert simulation["representative_comments"][0].segment_id == "support:llm-neutral"
     assert simulation["llm_errors"] == []
     assert simulation["echo_result"].echo_items[0].id == "llm-echo-1"
+
+
+def test_run_simulation_full_llm_sample_uses_per_agent_reactions(tmp_path, monkeypatch) -> None:
+    _use_temp_database(monkeypatch, tmp_path)
+    monkeypatch.setattr(app, "build_llm_client", lambda settings: FakeHybridClient())
+    event = _event()
+    fallback_frames = generate_framings(event, n=1)
+
+    simulation = app._run_simulation(
+        event=event,
+        frames=fallback_frames,
+        population_size=2,
+        seed=7,
+        echo_enabled=True,
+        echo_rounds=1,
+        run_mode="full_llm_sample",
+        provider=LLMProvider.OPENAI,
+        max_workers=1,
+        request_timeout_seconds=5,
+    )
+
+    assert simulation["run_mode"] == "full_llm_sample"
+    assert [frame.frame_id for frame in simulation["frames"]] == ["llm-neutral"]
+    assert len(simulation["initial_reactions"]) == 2
+    assert {reaction.stance_strength for reaction in simulation["initial_reactions"]} == {82}
+    assert simulation["llm_errors"] == []
+    assert simulation["metadata"]["max_workers"] == 1
+
+
+def test_run_simulation_full_llm_sample_rejects_large_population(tmp_path, monkeypatch) -> None:
+    _use_temp_database(monkeypatch, tmp_path)
+    event = _event()
+    fallback_frames = generate_framings(event, n=1)
+
+    try:
+        app._run_simulation(
+            event=event,
+            frames=fallback_frames,
+            population_size=101,
+            seed=7,
+            echo_enabled=False,
+            echo_rounds=0,
+            run_mode="full_llm_sample",
+            provider=LLMProvider.OPENAI,
+        )
+    except ValueError as exc:
+        assert "Full LLM sample mode is capped at 100 agents" in str(exc)
+    else:
+        raise AssertionError("Expected full sample population cap to raise ValueError")
 
 
 def test_mock_mode_performance_check_completes_comfortably(tmp_path, monkeypatch) -> None:

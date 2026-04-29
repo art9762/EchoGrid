@@ -18,7 +18,6 @@ from src.schemas import (
 )
 from src.utils import clamp
 
-
 STANCE_ORDER = [Stance.SUPPORT, Stance.OPPOSE, Stance.NEUTRAL, Stance.CONFUSED]
 STANCE_SIGN = {
     Stance.SUPPORT: 1,
@@ -176,6 +175,12 @@ def virality_risk_score(reactions: list[AgentReaction]) -> float:
     return round(clamp(emotional_intensity * average_share * average_comment / 10000), 2)
 
 
+def _spread(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    return float(max(values) - min(values))
+
+
 def frame_comparison(reactions: list[AgentReaction]) -> dict[str, dict[str, object]]:
     grouped: dict[str, list[AgentReaction]] = {}
     for reaction in reactions:
@@ -196,16 +201,73 @@ def frame_comparison(reactions: list[AgentReaction]) -> dict[str, dict[str, obje
     }
 
 
+def frame_sensitivity_score(reactions: list[AgentReaction]) -> dict[str, object]:
+    comparison = frame_comparison(reactions)
+    if not comparison:
+        return {
+            "score": 0.0,
+            "stance_spread": 0.0,
+            "trust_spread": 0.0,
+            "share_spread": 0.0,
+            "highest_share_frame": None,
+            "lowest_trust_frame": None,
+        }
+
+    support_values = [
+        data["stance_distribution"][Stance.SUPPORT.value]
+        for data in comparison.values()
+    ]
+    oppose_values = [
+        data["stance_distribution"][Stance.OPPOSE.value]
+        for data in comparison.values()
+    ]
+    trust_values = [float(data["average_trust"]) for data in comparison.values()]
+    share_values = [
+        float(data["average_share_likelihood"]) for data in comparison.values()
+    ]
+    stance_spread = max(
+        _spread(support_values),
+        _spread(oppose_values),
+    )
+    trust_spread = _spread(trust_values)
+    share_spread = _spread(share_values)
+    score = clamp(stance_spread * 0.45 + trust_spread * 0.25 + share_spread * 0.3)
+    highest_share_frame = max(
+        comparison, key=lambda frame_id: comparison[frame_id]["average_share_likelihood"]
+    )
+    lowest_trust_frame = min(
+        comparison, key=lambda frame_id: comparison[frame_id]["average_trust"]
+    )
+    return {
+        "score": round(score, 2),
+        "stance_spread": round(stance_spread, 2),
+        "trust_spread": round(trust_spread, 2),
+        "share_spread": round(share_spread, 2),
+        "highest_share_frame": highest_share_frame,
+        "lowest_trust_frame": lowest_trust_frame,
+    }
+
+
 def unexpected_segments(
     reactions: list[AgentReaction], agents: list[AgentProfile]
 ) -> list[dict[str, object]]:
-    rows = segment_breakdown(reactions, agents, by_field="income_level")
-    return [
-        row
-        for row in rows
-        if row["count"] >= 5
-        and (row["average_anger"] >= 60 or row["average_share_likelihood"] >= 60)
-    ]
+    candidates = []
+    for field in ["income_level", "age_group", "institutional_trust_bucket"]:
+        for row in segment_breakdown(reactions, agents, by_field=field):
+            if row["count"] < 5:
+                continue
+            risk_score = (
+                float(row["average_anger"]) * 0.38
+                + float(row["average_distrust"]) * 0.27
+                + float(row["average_share_likelihood"]) * 0.35
+            )
+            if risk_score < 45:
+                continue
+            enriched = dict(row)
+            enriched["field"] = field
+            enriched["risk_score"] = round(risk_score, 2)
+            candidates.append(enriched)
+    return sorted(candidates, key=lambda row: row["risk_score"], reverse=True)[:8]
 
 
 def echo_amplification_index(
@@ -273,9 +335,38 @@ def distortion_drift(echo_items: list[EchoItem]) -> float:
 def polarization_delta(
     initial_reactions: list[AgentReaction], echo_reactions: list[EchoReaction]
 ) -> float:
-    if not echo_reactions:
+    if not initial_reactions or not echo_reactions:
         return 0.0
-    return round(mean(abs(reaction.stance_shift) for reaction in echo_reactions), 2)
+    initial_by_agent: dict[str, AgentReaction] = {}
+    for reaction in initial_reactions:
+        initial_by_agent.setdefault(reaction.agent_id, reaction)
+    final_by_agent: dict[str, EchoReaction] = {}
+    for reaction in echo_reactions:
+        final_by_agent[reaction.agent_id] = reaction
+
+    initial_scores = [
+        STANCE_SIGN[reaction.stance] * reaction.stance_strength
+        for reaction in initial_by_agent.values()
+    ]
+    final_scores = []
+    for agent_id, initial in initial_by_agent.items():
+        final = final_by_agent.get(agent_id)
+        if final is None:
+            final_scores.append(STANCE_SIGN[initial.stance] * initial.stance_strength)
+            continue
+        final_scores.append(
+            STANCE_SIGN[final.updated_stance]
+            * clamp(initial.stance_strength + abs(final.stance_shift) * 0.5)
+        )
+    if len(initial_scores) < 2 or len(final_scores) < 2:
+        return 0.0
+    initial_spread = float(pd.Series(initial_scores).std(ddof=0))
+    final_spread = float(pd.Series(final_scores).std(ddof=0))
+    emotion_pressure = mean(
+        max(0, reaction.emotion_shift.anger) + max(0, reaction.emotion_shift.distrust)
+        for reaction in echo_reactions
+    )
+    return round(clamp(final_spread - initial_spread + emotion_pressure * 0.08, -100, 100), 2)
 
 
 def trust_delta(echo_reactions: list[EchoReaction]) -> float:

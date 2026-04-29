@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from src.config import AppSettings
 import src.llm_client as llm_client
+from src.config import AppSettings
 from src.llm_client import (
     GeminiLLMClient,
     MockLLMClient,

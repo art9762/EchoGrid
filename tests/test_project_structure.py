@@ -1,7 +1,6 @@
 import importlib
 from pathlib import Path
 
-
 CORE_MODULES = [
     "src.analytics",
     "src.echo_engine",

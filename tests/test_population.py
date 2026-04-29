@@ -28,3 +28,17 @@ def test_generate_population_has_diverse_coherent_agents() -> None:
     assert len({style for agent in agents for style in agent.media_diet}) >= 5
     assert all(16 <= agent.age <= 100 for agent in agents)
     assert all(agent.media_diet for agent in agents)
+
+
+def test_generate_population_keeps_life_stage_and_status_coherent() -> None:
+    agents = generate_population(PopulationConfig(population_size=1000, seed=124))
+
+    assert all(
+        agent.age >= 60 for agent in agents if agent.occupation_category == "retired"
+    )
+    assert all(agent.age <= 28 for agent in agents if agent.occupation_category == "student")
+    assert all(
+        agent.social_position in {"working_class", "working_middle"}
+        for agent in agents
+        if agent.income_level == "low"
+    )

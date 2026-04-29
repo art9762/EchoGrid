@@ -7,7 +7,6 @@ import random
 from src.schemas import AgentProfile, PopulationConfig
 from src.utils import clamp, weighted_choice
 
-
 AGE_GROUPS = [
     ((18, 24), 0.12),
     ((25, 34), 0.19),

@@ -13,9 +13,9 @@
   - проверить все tabs без runtime errors
   - проверить CSV/JSON downloads
 
-- [ ] Исправить найденные UI/runtime ошибки после smoke-test.
+- [x] Исправить найденные UI/runtime ошибки после smoke-test.
 
-- [ ] Вынести dashboard helper-функции из `app.py` в отдельные модули:
+- [x] Вынести dashboard helper-функции из `app.py` в отдельные модули:
   - `src/dashboard.py` или `src/ui/dashboard.py`
   - `src/ui/tables.py`
   - `src/ui/charts.py`
@@ -37,16 +37,16 @@
 
 ## P0 - привести интерфейс к demo-grade качеству
 
-- [ ] Уплотнить первый экран:
+- [x] Уплотнить первый экран:
   - четкий setup в sidebar
   - в main area сразу видны статус, scenario summary и ключевые метрики последнего run
 
-- [ ] Улучшить visual hierarchy:
+- [x] Улучшить visual hierarchy:
   - меньше длинных таблиц в первых tabs
   - ключевые метрики выше таблиц
   - таблицы ниже как inspectable detail
 
-- [ ] Добавить consistent chart styling:
+- [x] Добавить consistent chart styling:
   - единая палитра для stance
   - единая палитра для emotions
   - читаемые labels
@@ -102,7 +102,7 @@
   - LLM генерирует echo items
   - LLM генерирует representative comments для selected segments
 
-- [ ] Реализовать Full LLM small sample mode:
+- [x] Реализовать Full LLM small sample mode:
   - ограничить population до безопасного лимита, например `25-100`
   - показывать предупреждение о стоимости
   - не запускать тысячи вызовов без явного подтверждения
@@ -121,13 +121,13 @@
   - OpenAI cheap: `gpt-5.4-nano`
   - OpenAI balanced: `gpt-5.4-mini`
 
-- [ ] Добавить concurrency controls:
+- [x] Добавить concurrency controls:
   - `max_workers`
   - request timeout
   - graceful per-call failure
   - progress counter
 
-- [ ] Добавить LLM error storage:
+- [x] Добавить LLM error storage:
   - invalid JSON
   - provider timeout
   - missing API key
@@ -164,35 +164,35 @@
 
 ## P1 - расширить analytics
 
-- [ ] Добавить final-state analytics:
+- [x] Добавить final-state analytics:
   - final stance distribution
   - final trust average
   - final share likelihood average
   - final emotional intensity estimate
 
-- [ ] Улучшить `polarization_delta`:
+- [x] Улучшить `polarization_delta`:
   - сравнивать signed stance distribution before/after
   - учитывать emotional intensity
 
-- [ ] Улучшить `echo_amplification_index`:
+- [x] Улучшить `echo_amplification_index`:
   - нормализовать компоненты
   - явно показывать contribution breakdown
 
-- [ ] Добавить `frame_sensitivity_score`:
+- [x] Добавить `frame_sensitivity_score`:
   - насколько разные framings меняют stance/emotions/share
 
-- [ ] Добавить `narrative_risk_summary`:
+- [x] Добавить `narrative_risk_summary`:
   - top risky echo types
   - top affected bubbles
   - top distortion sources
 
-- [ ] Добавить `correction_effectiveness` в UI:
+- [x] Добавить `correction_effectiveness` в UI:
   - expert corrections vs official clarifications
   - trust_shift
   - anger_shift
   - share_likelihood_shift
 
-- [ ] Добавить `unexpected_segments` в UI:
+- [x] Добавить `unexpected_segments` в UI:
   - сегменты с неожиданно высокой anger/share/distrust
 
 ## P1 - storage и загрузка прошлых прогонов
@@ -231,7 +231,7 @@
   - prohibited use text
   - disallowed request classifier helpers
 
-- [ ] Добавить UI warning перед LLM mode:
+- [x] Добавить UI warning перед LLM mode:
   - synthetic simulation only
   - not polling
   - not targeting
@@ -254,7 +254,7 @@
 
 ## P1 - качество mock mode
 
-- [ ] Улучшить population coherence:
+- [x] Улучшить population coherence:
   - occupation vs age
   - family_status vs age
   - income vs education
@@ -274,30 +274,30 @@
 
 - [x] Добавить social_bubble в reactions dataframe.
 
-- [ ] Улучшить `run_agent_reaction`:
+- [x] Улучшить `run_agent_reaction`:
   - topic-specific effects
   - source-specific trust
   - media-diet-specific framing sensitivity
   - more varied comments
 
-- [ ] Улучшить `generate_echo_items`:
+- [x] Улучшить `generate_echo_items`:
   - 1-3 items per actor option
   - meme captions
   - official clarifications
   - partisan interpretations
   - expert corrections tied to distortion
 
-- [ ] Сделать deterministic seed trace:
+- [x] Сделать deterministic seed trace:
   - same seed => exact same result
   - different seed => plausible variation
 
 ## P2 - multi-round echo simulation
 
-- [ ] Обобщить `run_echo_simulation` на `echo_rounds > 1`.
+- [x] Обобщить `run_echo_simulation` на `echo_rounds > 1`.
 
-- [ ] Добавить `RoundSummary` generation.
+- [x] Добавить `RoundSummary` generation.
 
-- [ ] Добавить timeline по rounds:
+- [x] Добавить timeline по rounds:
   - round 0 original event
   - round 1 frames
   - round 2 initial reactions
@@ -306,60 +306,60 @@
   - round 5 new echo items
   - etc.
 
-- [ ] Добавить decay/saturation:
+- [x] Добавить decay/saturation:
   - repeated outrage has diminishing returns
   - corrections can reduce distortion but may not persuade resistant bubbles
 
-- [ ] Добавить tests:
+- [x] Добавить tests:
   - two echo rounds produce two sets of echo items
   - round numbers are correct
   - final states update across rounds
 
 ## P2 - richer media ecosystem
 
-- [ ] Добавить actor toggles в UI:
+- [x] Добавить actor toggles в UI:
   - include/exclude tabloids
   - include/exclude experts
   - include/exclude government source
   - include/exclude influencers
 
-- [ ] Добавить media actor presets:
+- [x] Добавить media actor presets:
   - low-trust environment
   - high-institutional-trust environment
   - highly partisan environment
   - expert-heavy environment
 
-- [ ] Добавить actor audience matching:
+- [x] Добавить actor audience matching:
   - echo items reach bubbles based on affinity
   - credibility interacts with trust profile
 
-- [ ] Добавить charts:
+- [x] Добавить charts:
   - credibility vs reach
   - sensationalism vs distortion
   - actor contribution to virality
 
 ## P2 - UI polish for conference demo
 
-- [ ] Сделать demo script:
+- [x] Сделать demo script:
   - one recommended scenario
   - one recommended population size
   - one recommended talking path through tabs
 
-- [ ] Добавить "Demo mode" button:
+- [x] Добавить "Demo mode" button:
   - auto-select scenario
   - auto-run 300 agents
   - auto-select 4 frames
   - echo enabled
 
-- [ ] Добавить narrative summary tab:
+- [x] Добавить narrative summary tab:
   - "What happened"
   - "Where amplification appeared"
   - "Which bubbles shifted"
   - "Which corrections helped"
 
-- [ ] Добавить visual timeline cards вместо только таблиц.
+- [x] Добавить visual timeline cards вместо только таблиц.
 
-- [ ] Добавить readable representative comments:
+- [x] Добавить readable representative comments:
   - support
   - oppose
   - neutral
@@ -367,7 +367,7 @@
   - high anger
   - high distrust
 
-- [ ] Добавить persistent "Synthetic, not polling" footer.
+- [x] Добавить persistent "Synthetic, not polling" footer.
 
 - [ ] Проверить mobile/tablet layout.
 
@@ -383,13 +383,13 @@
 
 - [ ] Добавить screenshots в README.
 
-- [ ] Добавить cost guide:
+- [x] Добавить cost guide:
   - mock
   - hybrid
   - full LLM small sample
   - provider comparison
 
-- [ ] Добавить limitations подробнее:
+- [x] Добавить limitations подробнее:
   - no prediction
   - no calibration
   - synthetic personas
@@ -407,11 +407,11 @@
 
 - [x] Добавить `pyproject.toml` для pytest config и tool settings.
 
-- [ ] Добавить formatting/linting:
+- [x] Добавить formatting/linting:
   - ruff
   - black или ruff format
 
-- [ ] Добавить CI позже:
+- [x] Добавить CI позже:
   - install
   - pytest
   - basic import check

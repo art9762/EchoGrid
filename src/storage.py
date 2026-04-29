@@ -11,17 +11,19 @@ from typing import Any
 from src.schemas import (
     AgentProfile,
     AgentReaction,
-    EchoSimulationResult,
     EchoItem,
     EchoReaction,
+    EchoSimulationResult,
+    LLMGenerationError,
+    LLMProvider,
     MediaActor,
     NewsEvent,
     NewsFrame,
+    RepresentativeComment,
     RoundSummary,
     SocialBubble,
 )
 from src.utils import stable_seed
-
 
 TABLE_DEFINITIONS = [
     """
@@ -137,6 +139,9 @@ def save_simulation(
     echo_result: EchoSimulationResult | None = None,
     seed: int | None = None,
     provider: str = "mock",
+    run_mode: str = "mock",
+    representative_comments: list[RepresentativeComment] | None = None,
+    llm_errors: list[LLMGenerationError] | None = None,
 ) -> str:
     init_database(db_path)
     simulation_id = (
@@ -155,6 +160,7 @@ def save_simulation(
         "population_size": len(agents),
         "seed": seed,
         "provider": provider,
+        "run_mode": run_mode,
         "agent_count": len(agents),
         "frame_count": len(frames),
         "reaction_count": len(reactions),
@@ -169,6 +175,11 @@ def save_simulation(
             if echo_result
             else {}
         ),
+        "representative_comments": [
+            comment.model_dump(mode="json")
+            for comment in representative_comments or []
+        ],
+        "llm_errors": [error.model_dump(mode="json") for error in llm_errors or []],
     }
 
     with sqlite3.connect(db_path) as connection:
@@ -275,6 +286,7 @@ def list_simulations(db_path: str | Path, limit: int = 25) -> list[dict[str, Any
                 ),
                 "seed": payload.get("seed"),
                 "provider": payload.get("provider", "mock"),
+                "run_mode": payload.get("run_mode", "mock"),
                 "frame_count": payload.get("frame_count", 0),
                 "reaction_count": payload.get("reaction_count", 0),
                 "echo_item_count": payload.get("echo_item_count", 0),
@@ -347,6 +359,17 @@ def load_simulation(db_path: str | Path, simulation_id: str) -> dict[str, Any]:
         "bubbles": bubbles,
         "bubble_assignments": metadata.get("bubble_assignments", {}),
         "echo_result": echo_result,
+        "run_mode": metadata.get("run_mode", "mock"),
+        "provider": _provider(metadata.get("provider", "mock")),
+        "representative_comments": [
+            RepresentativeComment.model_validate(comment)
+            for comment in metadata.get("representative_comments", [])
+        ],
+        "llm_errors": [
+            LLMGenerationError.model_validate(error)
+            for error in metadata.get("llm_errors", [])
+        ],
+        "metadata": metadata,
     }
 
 
@@ -380,3 +403,10 @@ def _load_many(
 
 def _json(model: Any) -> str:
     return json.dumps(model.model_dump(mode="json"))
+
+
+def _provider(value: str) -> LLMProvider | str:
+    try:
+        return LLMProvider(value)
+    except ValueError:
+        return value

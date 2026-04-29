@@ -4,7 +4,7 @@ This document is for future models and developers continuing EchoGrid.
 
 ## Current Release State
 
-EchoGrid is a working synthetic Streamlit MVP. It supports deterministic mock-mode simulation, SQLite persistence, previous-run loading and deletion, CSV/JSON/ZIP exports, guardrail disclaimers, and automated tests. API provider clients are scaffolded, but full LLM simulation is not enabled in the release workflow.
+EchoGrid is a working synthetic Streamlit MVP. It supports deterministic mock-mode simulation, bounded Hybrid mode, capped Full LLM sample mode, SQLite persistence, previous-run loading and deletion, CSV/JSON/ZIP exports, guardrail disclaimers, CI/lint configuration, and automated tests.
 
 ## Fast Commands
 
@@ -12,6 +12,7 @@ EchoGrid is a working synthetic Streamlit MVP. It supports deterministic mock-mo
 make install
 make test
 make smoke
+make lint
 make run
 ```
 
@@ -30,6 +31,9 @@ The app entrypoint is `app.py`. The test suite does not require API keys.
 - Added typed `LLMClient.complete_model` validation/retry support for future hybrid mode.
 - Added amplification breakdown, final-state metrics, and narrative-risk summary helpers.
 - Added `docs/layers.md` to document current layer boundaries.
+- Added capped Full LLM sample mode with per-agent/frame calls, concurrency controls, timeouts, deterministic fallback, and persisted LLM diagnostics.
+- Split Streamlit setup/dashboard/chart helpers into `src/ui/`.
+- Added bounded multi-round echo simulation, media presets, actor toggles, narrative summary, and demo mode.
 
 ## Important Constraints
 
@@ -41,12 +45,11 @@ The app entrypoint is `app.py`. The test suite does not require API keys.
 
 ## High-Value Next Work
 
-1. Split `app.py` into focused UI modules once the dashboard grows further.
-2. Add a previous-run comparison view using existing loaded simulations.
-3. Add final-state analytics charts from `EchoSimulationResult.final_reaction_state_by_agent`.
-4. Add a cost estimator before any LLM mode.
-5. Add CI with `make test`.
-6. Add screenshots after a manual Streamlit pass.
+1. Add a previous-run comparison view using existing loaded simulations.
+2. Add scenario-comparison workflows.
+3. Add exportable HTML/PDF reports.
+4. Add screenshots after a manual Streamlit pass.
+5. Add optional graph-based diffusion as a research extension.
 
 ## Files To Read First
 

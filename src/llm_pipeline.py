@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Protocol
 
 from pydantic import TypeAdapter
 
 from src.prompts import load_prompt
+from src.reaction_engine import run_agent_reaction
 from src.schemas import (
+    AgentProfile,
     AgentReaction,
     EchoItem,
     HybridArtifacts,
@@ -25,6 +29,9 @@ from src.schemas import (
 
 
 class HybridLLMClient(Protocol):
+    def generate_reaction_json(self, prompt: str) -> AgentReaction:
+        ...
+
     def generate_framings_json(self, prompt: str) -> list[NewsFrame]:
         ...
 
@@ -60,6 +67,30 @@ def estimate_llm_cost(
             estimated_usd_low=0,
             estimated_usd_high=0,
             notes="Mock mode uses deterministic local generation and makes no LLM calls.",
+        )
+
+    if normalized_mode in {"full_llm_sample", "full"}:
+        reaction_calls = population_size * max(frame_count, 1)
+        artifact_calls = 1 + 1 + (1 if echo_enabled else 0)
+        input_tokens = 700 * reaction_calls + 850 + frame_count * 220
+        output_tokens = 320 * reaction_calls + frame_count * 180 + 900
+        if echo_enabled:
+            input_tokens += 1700
+            output_tokens += 900
+        low_rate, high_rate = _rough_price_band(provider)
+        total_tokens_m = (input_tokens + output_tokens) / 1_000_000
+        return LLMCostEstimate(
+            run_mode="full_llm_sample",
+            provider=provider,
+            estimated_calls=reaction_calls + artifact_calls,
+            estimated_input_tokens=input_tokens,
+            estimated_output_tokens=output_tokens,
+            estimated_usd_low=round(total_tokens_m * low_rate, 4),
+            estimated_usd_high=round(total_tokens_m * high_rate, 4),
+            notes=(
+                "Full LLM sample mode calls the provider once per selected "
+                "agent/frame reaction and is capped by the app at 100 agents."
+            ),
         )
 
     calls = 1
@@ -118,6 +149,103 @@ def generate_hybrid_artifacts(
         representative_comment_limit=representative_comment_limit,
     )
     return artifacts.model_copy(update={"frames": frames, "errors": errors + artifacts.errors})
+
+
+def generate_full_sample_reactions(
+    client: HybridLLMClient,
+    event: NewsEvent,
+    agents: list[AgentProfile],
+    frames: list[NewsFrame],
+    fallback_reactions: list[AgentReaction],
+    seed: int,
+    max_workers: int = 4,
+    request_timeout_seconds: int = 30,
+    progress_callback: Callable[[str, int], None] | None = None,
+) -> tuple[list[AgentReaction], list[LLMGenerationError]]:
+    """Generate per-agent LLM reactions with deterministic fallback per failed call."""
+    fallback_by_key = {
+        (reaction.agent_id, reaction.frame_id): reaction for reaction in fallback_reactions
+    }
+    tasks = [(agent, frame) for frame in frames for agent in agents]
+    total = len(tasks)
+    if total == 0:
+        return [], []
+
+    results: list[AgentReaction | None] = [None] * total
+    errors: list[LLMGenerationError] = []
+    completed = 0
+    workers = max(1, min(max_workers, total))
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(
+                _generate_one_full_sample_reaction,
+                client,
+                event,
+                agent,
+                frame,
+                seed,
+            ): (index, agent, frame)
+            for index, (agent, frame) in enumerate(tasks)
+        }
+        for future, (index, agent, frame) in futures.items():
+            fallback = fallback_by_key.get((agent.id, frame.frame_id)) or run_agent_reaction(
+                agent, event, frame, mode="mock", seed=seed
+            )
+            try:
+                results[index] = future.result(timeout=request_timeout_seconds)
+            except TimeoutError as exc:
+                errors.append(
+                    _llm_error(f"full_reaction:{agent.id}:{frame.frame_id}", exc)
+                )
+                results[index] = fallback
+            except Exception as exc:
+                errors.append(
+                    _llm_error(f"full_reaction:{agent.id}:{frame.frame_id}", exc)
+                )
+                results[index] = fallback
+            completed += 1
+            _progress(
+                progress_callback,
+                f"Generated {completed}/{total} Full LLM sample reactions",
+                round(completed * 100 / total),
+            )
+
+    return [reaction for reaction in results if reaction is not None], errors
+
+
+def _generate_one_full_sample_reaction(
+    client: HybridLLMClient,
+    event: NewsEvent,
+    agent: AgentProfile,
+    frame: NewsFrame,
+    seed: int,
+) -> AgentReaction:
+    generated = client.generate_reaction_json(
+        build_reaction_prompt(event=event, agent=agent, frame=frame, seed=seed)
+    )
+    return generated.model_copy(
+        update={"agent_id": agent.id, "frame_id": frame.frame_id}
+    )
+
+
+def build_reaction_prompt(
+    event: NewsEvent, agent: AgentProfile, frame: NewsFrame, seed: int
+) -> str:
+    prompt = load_prompt("reaction")
+    context = {
+        "event": event.model_dump(mode="json"),
+        "agent": agent.model_dump(mode="json"),
+        "frame": frame.model_dump(mode="json"),
+        "seed": seed,
+    }
+    return (
+        f"{prompt}\n\n"
+        "Generate exactly one AgentReaction JSON object for this agent and frame. "
+        "Use the provided agent_id and frame_id. Return JSON only.\n\n"
+        "Context JSON:\n"
+        f"{json.dumps(context, sort_keys=True)}"
+    )
 
 
 def generate_hybrid_frames(
@@ -299,6 +427,13 @@ def _reaction_samples(reactions: list[AgentReaction], limit: int) -> list[dict[s
 
 def _llm_error(step: str, exc: Exception) -> LLMGenerationError:
     return LLMGenerationError(step=step, message=f"{type(exc).__name__}: {exc}")
+
+
+def _progress(
+    progress_callback: Callable[[str, int], None] | None, message: str, percent: int
+) -> None:
+    if progress_callback is not None:
+        progress_callback(message, percent)
 
 
 def _slug(value: str) -> str:

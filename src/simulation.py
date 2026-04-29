@@ -17,6 +17,7 @@ from src.echo_engine import generate_echo_items, run_echo_simulation
 from src.llm_client import build_llm_client
 from src.llm_pipeline import (
     estimate_llm_cost,
+    generate_full_sample_reactions,
     generate_hybrid_frames,
     generate_hybrid_response_artifacts,
 )
@@ -26,7 +27,6 @@ from src.reaction_engine import run_initial_reactions
 from src.schemas import LLMProvider, NewsEvent, NewsFrame, PopulationConfig
 from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
 from src.storage import save_simulation
-
 
 ProgressCallback = Callable[..., None]
 LLMClientFactory = Callable[[Any], Any]
@@ -45,6 +45,11 @@ def run_simulation(
     db_path: str | Path | None = None,
     progress_callback: ProgressCallback | None = None,
     llm_client_factory: LLMClientFactory = build_llm_client,
+    max_workers: int | None = None,
+    request_timeout_seconds: int | None = None,
+    media_preset: str = "balanced",
+    included_actor_types: set | None = None,
+    echo_items_per_actor: int | tuple[int, int] = 1,
 ) -> dict[str, Any]:
     """Run one EchoGrid simulation and persist the result."""
     provider = provider if isinstance(provider, LLMProvider) else LLMProvider(provider)
@@ -56,7 +61,13 @@ def run_simulation(
     representative_comments = []
     llm_client = None
 
-    if run_mode == "hybrid":
+    full_sample_mode = run_mode in {"full", "full_llm_sample"}
+    if full_sample_mode:
+        run_mode = "full_llm_sample"
+        if population_size > 100:
+            raise ValueError("Full LLM sample mode is capped at 100 agents.")
+
+    if run_mode in {"hybrid", "full_llm_sample"}:
         _notify(progress_callback, "Connecting to LLM provider", 8)
         llm_client = llm_client_factory(
             _settings_for_provider(settings, provider, model_name)
@@ -76,12 +87,33 @@ def run_simulation(
     )
 
     _notify(progress_callback, "Running initial reactions...", 35)
-    initial_reactions = run_initial_reactions(
+    fallback_initial_reactions = run_initial_reactions(
         agents, event, frames_for_run, mode="mock", seed=seed
     )
+    initial_reactions = fallback_initial_reactions
+    if run_mode == "full_llm_sample" and llm_client is not None:
+        _notify(progress_callback, "Generating Full LLM sample reactions...", 42)
+        initial_reactions, reaction_errors = generate_full_sample_reactions(
+            client=llm_client,
+            event=event,
+            agents=agents,
+            frames=frames_for_run,
+            fallback_reactions=fallback_initial_reactions,
+            seed=seed,
+            max_workers=max_workers or settings.llm_max_workers,
+            request_timeout_seconds=(
+                request_timeout_seconds or settings.llm_request_timeout_seconds
+            ),
+            progress_callback=lambda message, percent: _notify(
+                progress_callback, message, percent
+            ),
+        )
+        llm_errors.extend(reaction_errors)
 
     _notify(progress_callback, "Preparing media ecosystem and bubbles...", 55)
-    media_actors = default_media_actors()
+    media_actors = default_media_actors(
+        preset=media_preset, include_actor_types=included_actor_types
+    )
     bubbles = default_social_bubbles()
     assignments = assign_agents_to_bubbles(agents, bubbles)
 
@@ -129,6 +161,8 @@ def run_simulation(
             mode="mock",
             seed=seed,
             echo_items_override=echo_items_override,
+            echo_rounds=echo_rounds,
+            items_per_actor=echo_items_per_actor,
         )
     elif run_mode == "hybrid" and llm_client is not None:
         _notify(progress_callback, "Generating representative comments", 78)
@@ -158,6 +192,9 @@ def run_simulation(
         echo_result=echo_result,
         seed=seed,
         provider=provider.value,
+        run_mode=run_mode,
+        representative_comments=representative_comments,
+        llm_errors=llm_errors,
     )
 
     _notify(progress_callback, "Simulation saved.", 100)
@@ -191,6 +228,11 @@ def run_simulation(
             "seed": seed,
             "echo_enabled": echo_enabled,
             "echo_rounds": echo_rounds,
+            "max_workers": max_workers or settings.llm_max_workers,
+            "request_timeout_seconds": (
+                request_timeout_seconds or settings.llm_request_timeout_seconds
+            ),
+            "media_preset": media_preset,
         },
     }
 

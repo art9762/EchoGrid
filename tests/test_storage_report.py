@@ -121,6 +121,48 @@ def test_load_simulation_restores_saved_run_counts(tmp_path) -> None:
     assert len(loaded["echo_result"].echo_reactions) == len(echo_result.echo_reactions)
 
 
+def test_load_simulation_restores_llm_artifacts_and_runtime_metadata(tmp_path) -> None:
+    db_path = tmp_path / "echogrid.sqlite3"
+    event, agents, frames, reactions, actors, bubbles, assignments, echo_result = sample_run()
+    representative_comment = RepresentativeComment(
+        segment_id="support:neutral",
+        segment_label="Supporters of the neutral frame",
+        stance=Stance.SUPPORT,
+        frame_id="neutral",
+        bubble_id="high_trust_institutionalists",
+        comment="This is acceptable if safeguards stay visible.",
+        source_reaction_ids=["agent-00001:neutral"],
+    )
+    llm_error = LLMGenerationError(
+        step="full_reaction:agent-00002:neutral",
+        message="TimeoutError: request timed out",
+    )
+    simulation_id = save_simulation(
+        db_path=db_path,
+        event=event,
+        agents=agents,
+        frames=frames,
+        reactions=reactions,
+        media_actors=actors,
+        bubbles=bubbles,
+        bubble_assignments=assignments,
+        echo_result=echo_result,
+        seed=22,
+        provider="openai",
+        run_mode="full_llm_sample",
+        representative_comments=[representative_comment],
+        llm_errors=[llm_error],
+    )
+
+    loaded = load_simulation(db_path, simulation_id)
+
+    assert loaded["run_mode"] == "full_llm_sample"
+    assert loaded["provider"] == LLMProvider.OPENAI
+    assert loaded["metadata"]["seed"] == 22
+    assert loaded["representative_comments"][0].comment == representative_comment.comment
+    assert loaded["llm_errors"][0].step == llm_error.step
+
+
 def test_list_simulations_returns_metadata_and_delete_removes_run(tmp_path) -> None:
     db_path = tmp_path / "echogrid.sqlite3"
     event, agents, frames, reactions, actors, bubbles, assignments, echo_result = sample_run()

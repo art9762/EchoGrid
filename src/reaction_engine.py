@@ -5,7 +5,6 @@ from __future__ import annotations
 from src.schemas import AgentProfile, AgentReaction, Emotions, NewsEvent, NewsFrame, Stance
 from src.utils import clamp, seeded_rng
 
-
 FRAME_EFFECTS = {
     "neutral": {"support": 0, "anger": -6, "trust": 8},
     "technocratic": {"support": 5, "anger": -10, "trust": 6},

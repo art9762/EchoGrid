@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.schemas import AgentReaction, EchoItem, EchoReaction, EmotionShift, Emotions, NewsFrame
-
+from src.schemas import AgentReaction, EchoItem, EchoReaction, Emotions, EmotionShift, NewsFrame
 
 PROMPT_FIELD_EXPECTATIONS = {
     "reaction": set(AgentReaction.model_fields) | set(Emotions.model_fields),

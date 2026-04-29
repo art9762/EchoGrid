@@ -8,7 +8,6 @@ from pydantic import Field
 
 from src.schemas import EchoGridModel, LLMProvider
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 SIMULATIONS_DIR = DATA_DIR / "simulations"
@@ -43,10 +42,12 @@ class AppSettings(EchoGridModel):
     openai_reaction_model: str = "gpt-5.4-nano"
     openai_echo_model: str = "gpt-5.4-mini"
     openai_report_model: str = "gpt-5.4-mini"
+    llm_max_workers: int = Field(default=4, ge=1, le=16)
+    llm_request_timeout_seconds: int = Field(default=30, ge=5, le=300)
     database_path: Path = Field(default=DATA_DIR / "echogrid.sqlite3")
 
     @classmethod
-    def from_env(cls) -> "AppSettings":
+    def from_env(cls) -> AppSettings:
         load_dotenv(PROJECT_ROOT / ".env")
         return cls(
             llm_provider=LLMProvider(os.getenv("ECHOGRID_LLM_PROVIDER", "mock")),
@@ -83,6 +84,10 @@ class AppSettings(EchoGridModel):
             ),
             openai_report_model=os.getenv(
                 "ECHOGRID_OPENAI_REPORT_MODEL", "gpt-5.4-mini"
+            ),
+            llm_max_workers=int(os.getenv("ECHOGRID_LLM_MAX_WORKERS", "4")),
+            llm_request_timeout_seconds=int(
+                os.getenv("ECHOGRID_LLM_REQUEST_TIMEOUT_SECONDS", "30")
             ),
             database_path=Path(
                 os.getenv("ECHOGRID_DATABASE_PATH", str(DATA_DIR / "echogrid.sqlite3"))

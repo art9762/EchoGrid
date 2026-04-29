@@ -6,3 +6,4 @@ pydantic>=2.8.0
 python-dotenv>=1.0.1
 streamlit>=1.39.0
 pytest>=8.3.0
+ruff>=0.8.0

@@ -2,7 +2,7 @@ PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 STREAMLIT ?= .venv/bin/streamlit
 
-.PHONY: install test smoke run clean
+.PHONY: install test smoke lint format run clean
 
 install:
 	python3 -m venv .venv
@@ -13,6 +13,12 @@ test:
 
 smoke:
 	$(PYTHON) -m pytest tests/test_app_smoke.py -q
+
+lint:
+	$(PYTHON) -m ruff check .
+
+format:
+	$(PYTHON) -m ruff format .
 
 run:
 	$(STREAMLIT) run app.py

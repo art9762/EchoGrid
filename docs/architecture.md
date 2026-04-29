@@ -1,19 +1,18 @@
 # EchoGrid Architecture
 
-EchoGrid is a Streamlit application for synthetic media-dynamics simulation. It is designed as a deterministic mock-mode MVP with clear seams for later LLM-assisted generation.
+EchoGrid is a Streamlit application for synthetic media-dynamics simulation. It is designed as a deterministic mock-mode MVP with bounded LLM-assisted modes for framings, echo artifacts, representative comments, and capped small-sample reactions.
 
 ## Runtime Shape
 
-`app.py` owns the Streamlit dashboard. `src.simulation.run_simulation` owns
-the UI-independent application-service orchestration for a run. The simulation
+`app.py` is a thin Streamlit entrypoint. `src/ui/` owns setup, dashboard, and chart rendering. `src.simulation.run_simulation` owns the UI-independent application-service orchestration for a run. The simulation
 pipeline is:
 
 1. `NewsEvent` from a demo scenario or custom form.
 2. Synthetic population from `src.population.generate_population`.
 3. Built-in media framings from `src.framing.generate_framings`.
-4. Initial reactions from `src.reaction_engine.run_initial_reactions`.
+4. Initial reactions from `src.reaction_engine.run_initial_reactions` or capped Full LLM sample generation.
 5. Media actors and social bubbles from `src.media_ecosystem` and `src.social_bubbles`.
-6. Optional one-round echo simulation from `src.echo_engine.run_echo_simulation`.
+6. Optional bounded multi-round echo simulation from `src.echo_engine.run_echo_simulation`.
 7. Persistence through `src.storage.save_simulation`.
 8. Final-state, amplification, and narrative-risk analytics through `src.analytics`.
 9. CSV, JSON, and ZIP exports through `src.report`.
@@ -28,10 +27,11 @@ pipeline is:
 - `src/echo_engine.py`: echo item generation, bubble-specific reaction shifts, and amplification metrics.
 - `src/analytics.py`: aggregate metrics for stance, emotions, trust, virality, bubbles, and frames.
 - `src/simulation.py`: application-service layer that coordinates a full run outside Streamlit.
+- `src/ui/`: Streamlit setup, dashboard, and chart helpers.
 - `src/storage.py`: SQLite persistence, load/list/delete helpers, and simulation metadata.
 - `src/report.py`: export dataframes, summary JSON, and full ZIP bundles.
 - `src/guardrails.py`: prohibited-use classifier helpers and refusal text.
-- `src/llm_client.py`: provider scaffolding for Anthropic, Gemini, OpenAI, and mock mode, plus typed JSON/Pydantic validation for future hybrid generation.
+- `src/llm_client.py`: provider scaffolding for Anthropic, Gemini, OpenAI, and mock mode, plus typed JSON/Pydantic validation for Hybrid and Full LLM sample generation.
 
 See `docs/layers.md` for the current layer boundaries and extension notes.
 

@@ -28,7 +28,7 @@ The current release runs fully in deterministic mock mode without API keys. It a
 - Gemini
 - OpenAI / ChatGPT via Trinity
 
-The full agent-scale pipeline currently uses mock mode by default. LLM provider calls are scaffolded for later integration into selected generation steps. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/ZIP exports, automated tests, developer handoff docs, and a UI-independent simulation service layer.
+The full agent-scale pipeline uses mock mode by default. LLM provider calls are available in bounded Hybrid mode and capped Full LLM sample mode. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/ZIP exports, automated tests, CI/lint configuration, developer handoff docs, a UI-independent simulation service layer, multi-round echo simulation, media presets, and persisted LLM diagnostics.
 
 ## Installation
 
@@ -63,6 +63,8 @@ When `ECHOGRID_LLM_PROVIDER` is `anthropic` or `openai`, EchoGrid uses the Trini
 make install
 make test
 make smoke
+make lint
+make format
 make run
 make clean
 ```
@@ -79,8 +81,9 @@ The app opens a Streamlit dashboard with setup controls, previous-run loading, s
 
 - `Mock`: fully local deterministic simulation, no API calls.
 - `Hybrid`: local synthetic population and initial reactions, plus bounded LLM calls for improved framings, echo items, and representative comments. Claude and ChatGPT/OpenAI models are routed through Trinity; Gemini uses `GEMINI_API_KEY`.
+- `Full LLM sample`: capped 25-100 agent mode that uses provider calls for per-agent/frame reactions, then keeps echo propagation bounded. The UI shows cost and safety warnings before running it.
 
-Hybrid mode deliberately avoids per-agent LLM calls. It samples high-signal reactions and sends only artifact-level prompts, so a 1000-agent run still uses a small fixed number of LLM requests.
+Hybrid mode deliberately avoids per-agent LLM calls. It samples high-signal reactions and sends only artifact-level prompts, so a 1000-agent run still uses a small fixed number of LLM requests. Full LLM sample mode is capped to prevent accidental thousands of calls.
 
 ## Demo Scenarios
 
@@ -115,6 +118,7 @@ src/
   social_bubbles.py
   storage.py
   utils.py
+  ui/
   prompts/
 data/
   simulations/
@@ -147,7 +151,7 @@ Dashboard export supports:
 - summary JSON
 - full ZIP bundle with README, CSVs, and summary JSON
 
-Saved simulations can be loaded or deleted from the sidebar. The SQLite file is local runtime data and is ignored by git.
+Saved simulations can be loaded or deleted from the sidebar. LLM-mode errors and representative comments are stored in the simulation payload and restored when loading previous runs. The SQLite file is local runtime data and is ignored by git.
 
 ## Tests
 
@@ -164,14 +168,16 @@ The test suite covers schemas, configuration, population generation, framings, m
 - `docs/ethics.md` documents allowed and disallowed uses.
 - `docs/demo-script.md` gives a conference-style demo path.
 - `docs/AI_HANDOFF.md` summarizes current state and next work for other models and developers.
+- `docs/cost-guide.md` compares Mock, Hybrid, and Full LLM sample cost behavior.
+- `docs/limitations.md` expands the modeling and safety limitations.
 - `docs/superpowers/plans/2026-04-28-release-hardening.md` records the release-hardening plan and verification flow.
 
 ## Limitations
 
 - Mock mode is plausible and deterministic, not scientifically calibrated.
 - Outputs should not be interpreted as survey evidence.
-- Current echo simulation supports one echo round.
-- Hybrid mode uses bounded artifact-level LLM calls; full per-agent LLM simulation is not implemented.
+- Echo simulation supports bounded multi-round cascades, but not graph-based diffusion.
+- Hybrid mode uses bounded artifact-level LLM calls. Full LLM sample is intentionally capped at 100 agents.
 - Network diffusion is bubble-based, not graph-based.
 - Previous-run storage uses JSON payloads for MVP flexibility rather than migration-managed analytical tables.
 
@@ -181,9 +187,7 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Roadmap
 
-- Extend hybrid mode with richer reports and persisted LLM artifacts.
-- Add full LLM mode for small stratified samples.
-- Add multi-round echo cascades.
-- Add previous-run loading from SQLite.
-- Add richer communication-risk reports.
+- Add screenshots from a polished manual demo pass.
+- Add richer scenario-comparison workflows.
+- Add exportable HTML/PDF reports.
 - Add calibration hooks for external research datasets without claiming prediction.

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 PROHIBITED_USE_TEXT = (
     "EchoGrid must not be used for manipulative targeting, election targeting, "
     "vulnerable-group targeting, harassment, radicalization, or persuasion "

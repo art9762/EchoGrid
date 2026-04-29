@@ -6,6 +6,7 @@ from src.analytics import (
     anger_delta,
     distortion_drift,
     echo_amplification_index,
+    stance_distribution,
     trust_delta,
     virality_growth,
 )
@@ -23,10 +24,11 @@ from src.schemas import (
     MediaActor,
     NewsEvent,
     NewsFrame,
+    RoundSummary,
     SocialBubble,
     Stance,
 )
-from src.utils import clamp, stable_seed, seeded_rng
+from src.utils import clamp, seeded_rng, stable_seed
 
 
 def generate_echo_items(
@@ -37,6 +39,8 @@ def generate_echo_items(
     bubbles: list[SocialBubble],
     mode: str = "mock",
     seed: int = 42,
+    items_per_actor: int | tuple[int, int] = 1,
+    round_number: int = 1,
 ) -> list[EchoItem]:
     if mode != "mock":
         raise NotImplementedError("LLM echo item generation will be added later.")
@@ -54,38 +58,46 @@ def generate_echo_items(
     frame_ids = [frame.frame_id for frame in frames] or [None]
 
     items: list[EchoItem] = []
-    for index, actor in enumerate(media_actors):
-        rng = seeded_rng(seed, event.title, actor.id, index)
-        source_reactions = intense_reactions[index : index + 3] or intense_reactions[:1]
-        echo_type = _echo_type_for_actor(actor)
-        emotion = _emotion_for_echo(actor, echo_type)
-        distortion = _distortion_for_actor(actor, echo_type, rng.random())
-        sensationalism = clamp(actor.sensationalism + rng.gauss(0, 6))
-        target_bubbles = [
-            affinity for affinity in actor.audience_affinity if affinity in bubble_ids
-        ]
-        if not target_bubbles:
-            target_bubbles = [sorted(bubble_ids)[index % len(bubble_ids)]]
-
-        items.append(
-            EchoItem(
-                id=f"echo-{index + 1:03d}",
-                round_number=1,
-                echo_type=echo_type,
-                text=_echo_text(event, actor, echo_type, emotion),
-                origin_actor_id=actor.id,
-                source_frame_id=frame_ids[index % len(frame_ids)],
-                target_bubbles=target_bubbles,
-                emotion=emotion,
-                distortion_level=distortion,
-                sensationalism_level=sensationalism,
-                estimated_reach=clamp(actor.reach + rng.gauss(0, 7)),
-                created_from_reaction_ids=[
-                    f"{reaction.agent_id}:{reaction.frame_id}"
-                    for reaction in source_reactions
-                ],
+    item_index = 0
+    for actor_index, actor in enumerate(media_actors):
+        rng = seeded_rng(seed, event.title, actor.id, actor_index)
+        item_count = _item_count_for_actor(actor, rng, items_per_actor)
+        for actor_item_index in range(item_count):
+            source_reactions = (
+                intense_reactions[item_index : item_index + 3] or intense_reactions[:1]
             )
-        )
+            echo_type = _echo_type_for_actor(
+                actor, item_index=actor_item_index, multi_item=item_count > 1
+            )
+            emotion = _emotion_for_echo(actor, echo_type)
+            distortion = _distortion_for_actor(actor, echo_type, rng.random())
+            sensationalism = clamp(actor.sensationalism + rng.gauss(0, 6))
+            target_bubbles = [
+                affinity for affinity in actor.audience_affinity if affinity in bubble_ids
+            ]
+            if not target_bubbles:
+                target_bubbles = [sorted(bubble_ids)[item_index % len(bubble_ids)]]
+
+            items.append(
+                EchoItem(
+                    id=f"echo-r{round_number}-{item_index + 1:03d}",
+                    round_number=round_number,
+                    echo_type=echo_type,
+                    text=_echo_text(event, actor, echo_type, emotion),
+                    origin_actor_id=actor.id,
+                    source_frame_id=frame_ids[item_index % len(frame_ids)],
+                    target_bubbles=target_bubbles,
+                    emotion=emotion,
+                    distortion_level=distortion,
+                    sensationalism_level=sensationalism,
+                    estimated_reach=clamp(actor.reach + rng.gauss(0, 7)),
+                    created_from_reaction_ids=[
+                        f"{reaction.agent_id}:{reaction.frame_id}"
+                        for reaction in source_reactions
+                    ],
+                )
+            )
+            item_index += 1
     return items
 
 
@@ -113,10 +125,9 @@ def run_echo_simulation(
     mode: str = "mock",
     seed: int = 42,
     echo_items_override: list[EchoItem] | None = None,
+    echo_rounds: int = 1,
+    items_per_actor: int | tuple[int, int] = 1,
 ) -> EchoSimulationResult:
-    echo_items = echo_items_override or generate_echo_items(
-        event, frames, initial_reactions, media_actors, bubbles, mode=mode, seed=seed
-    )
     agent_lookup = {agent.id: agent for agent in agents}
     bubble_lookup = {bubble.id: bubble for bubble in bubbles}
     bubble_by_agent = {
@@ -128,33 +139,83 @@ def run_echo_simulation(
     for reaction in initial_reactions:
         original_by_agent.setdefault(reaction.agent_id, reaction)
 
+    simulation_id = f"sim-{stable_seed(seed, event.title) % 1_000_000:06d}"
+    round_summaries = _initial_round_summaries(
+        simulation_id, event, frames, initial_reactions
+    )
+    current_by_agent = dict(original_by_agent)
+    all_echo_items: list[EchoItem] = []
     echo_reactions: list[EchoReaction] = []
     final_states: dict[str, FinalAgentState] = {}
-    for agent_id, original in original_by_agent.items():
-        agent = agent_lookup[agent_id]
-        bubble_id = bubble_by_agent.get(agent_id, "apolitical_cost_sensitive")
-        bubble = bubble_lookup[bubble_id]
-        item = _select_echo_item_for_bubble(agent, bubble, echo_items, seed)
-        echo_reaction = run_echo_reaction(
-            agent, original, item, bubble, mode=mode, seed=seed
+
+    for round_index in range(1, max(1, echo_rounds) + 1):
+        if round_index == 1 and echo_items_override is not None:
+            round_items = [
+                item.model_copy(update={"round_number": 1})
+                for item in echo_items_override
+            ]
+        else:
+            round_items = generate_echo_items(
+                event=event,
+                frames=frames,
+                reactions=list(current_by_agent.values()),
+                media_actors=media_actors,
+                bubbles=bubbles,
+                mode=mode,
+                seed=seed + round_index - 1,
+                items_per_actor=items_per_actor,
+                round_number=round_index,
+            )
+        all_echo_items.extend(round_items)
+        round_reactions: list[EchoReaction] = []
+        for agent_id, current in current_by_agent.items():
+            agent = agent_lookup[agent_id]
+            bubble_id = bubble_by_agent.get(agent_id, "apolitical_cost_sensitive")
+            bubble = bubble_lookup[bubble_id]
+            item = _select_echo_item_for_bubble(
+                agent, bubble, round_items, seed + round_index
+            )
+            echo_reaction = run_echo_reaction(
+                agent, current, item, bubble, mode=mode, seed=seed + round_index
+            )
+            echo_reactions.append(echo_reaction)
+            round_reactions.append(echo_reaction)
+            current_by_agent[agent_id] = _reaction_after_echo(current, echo_reaction)
+            final_states[agent_id] = _final_state(
+                agent_id, original_by_agent[agent_id], echo_reaction, bubble_id
+            )
+        round_summaries.append(
+            RoundSummary(
+                simulation_id=simulation_id,
+                round_number=round_index + 2,
+                label=f"Echo reactions round {round_index}",
+                metrics={
+                    "echo_item_count": len(round_items),
+                    "echo_reaction_count": len(round_reactions),
+                    "stance_delta_average": round(
+                        sum(abs(reaction.stance_shift) for reaction in round_reactions)
+                        / max(len(round_reactions), 1),
+                        2,
+                    ),
+                },
+            )
         )
-        echo_reactions.append(echo_reaction)
-        final_states[agent_id] = _final_state(agent_id, original, echo_reaction, bubble_id)
 
     metrics = {
         "echo_amplification_index": echo_amplification_index(
-            initial_reactions, echo_reactions, echo_items
+            initial_reactions, echo_reactions, all_echo_items
         ),
-        "distortion_drift": distortion_drift(echo_items),
+        "distortion_drift": distortion_drift(all_echo_items),
         "trust_delta": trust_delta(echo_reactions),
         "anger_delta": anger_delta(echo_reactions),
         "virality_growth": virality_growth(echo_reactions),
     }
 
     return EchoSimulationResult(
-        simulation_id=f"sim-{stable_seed(seed, event.title) % 1_000_000:06d}",
-        echo_items=echo_items,
+        simulation_id=simulation_id,
+        echo_items=all_echo_items,
         echo_reactions=echo_reactions,
+        round_summaries=round_summaries,
         final_reaction_state_by_agent=final_states,
         amplification_metrics=metrics,
     )
@@ -213,6 +274,14 @@ def _mock_echo_reaction(
         distrust_shift = clamp((item.distortion_level - 30) * 0.08 + rng.gauss(0, 4), -12, 16)
         share_shift = clamp((item.estimated_reach - 50) * 0.1 + rng.gauss(0, 5), -12, 20)
 
+    saturation = max(0.55, 1 - (item.round_number - 1) * 0.18)
+    if item.round_number > 1:
+        stance_shift = clamp(stance_shift * saturation, -100, 100)
+        trust_shift = clamp(trust_shift * saturation, -100, 100)
+        anger_shift = clamp(anger_shift * saturation, -100, 100)
+        distrust_shift = clamp(distrust_shift * saturation, -100, 100)
+        share_shift = clamp(share_shift * saturation, -100, 100)
+
     return EchoReaction(
         agent_id=agent.id,
         echo_item_id=item.id,
@@ -233,7 +302,28 @@ def _mock_echo_reaction(
     )
 
 
-def _echo_type_for_actor(actor: MediaActor) -> EchoType:
+def _item_count_for_actor(
+    actor: MediaActor, rng, items_per_actor: int | tuple[int, int]
+) -> int:
+    if isinstance(items_per_actor, tuple):
+        lower, upper = items_per_actor
+        count = rng.randint(max(1, lower), max(lower, upper))
+        if actor.actor_type in {ActorType.INFLUENCER, ActorType.GRASSROOTS_ACCOUNT}:
+            return max(2, count)
+        return count
+    return max(1, items_per_actor)
+
+
+def _echo_type_for_actor(
+    actor: MediaActor, item_index: int = 0, multi_item: bool = False
+) -> EchoType:
+    if multi_item and item_index > 0 and actor.actor_type in {
+        ActorType.INFLUENCER,
+        ActorType.GRASSROOTS_ACCOUNT,
+    }:
+        return EchoType.MEME_CAPTION
+    if multi_item and item_index > 1 and actor.actor_type == ActorType.PARTISAN_OUTLET:
+        return EchoType.PARTISAN_ATTACK
     if actor.actor_type == ActorType.TABLOID:
         return EchoType.TABLOID_HEADLINE
     if actor.actor_type == ActorType.EXPERT:
@@ -280,6 +370,8 @@ def _echo_text(
         return f"{actor.name}: Officials clarify scope and safeguards for {event.title.lower()}"
     if echo_type == EchoType.PARTISAN_ATTACK:
         return f"{actor.name}: Opponents say {event.title.lower()} reveals misplaced priorities"
+    if echo_type == EchoType.MEME_CAPTION:
+        return f"{actor.name}: Meme caption turns {event.title.lower()} into a punchy shareable claim"
     if echo_type == EchoType.INFLUENCER_POST:
         return f"{actor.name}: Here's why people are arguing about {event.title.lower()}"
     if echo_type == EchoType.VIRAL_COMMENT:
@@ -310,6 +402,39 @@ def _updated_stance(previous: Stance, shift: int) -> Stance:
     return Stance.NEUTRAL
 
 
+def _reaction_after_echo(
+    current: AgentReaction, echo_reaction: EchoReaction
+) -> AgentReaction:
+    emotions = current.emotions.model_copy(
+        update={
+            "anger": clamp(current.emotions.anger + echo_reaction.emotion_shift.anger),
+            "fear": clamp(current.emotions.fear + echo_reaction.emotion_shift.fear),
+            "hope": clamp(current.emotions.hope + echo_reaction.emotion_shift.hope),
+            "distrust": clamp(
+                current.emotions.distrust + echo_reaction.emotion_shift.distrust
+            ),
+            "indifference": clamp(
+                current.emotions.indifference
+                + echo_reaction.emotion_shift.indifference
+            ),
+        }
+    )
+    return current.model_copy(
+        update={
+            "stance": echo_reaction.updated_stance,
+            "stance_strength": clamp(
+                current.stance_strength + abs(echo_reaction.stance_shift) * 0.5
+            ),
+            "emotions": emotions,
+            "trust_in_source": clamp(current.trust_in_source + echo_reaction.trust_shift),
+            "share_likelihood": clamp(
+                current.share_likelihood + echo_reaction.share_likelihood_shift
+            ),
+            "main_reason": echo_reaction.reason,
+        }
+    )
+
+
 def _final_state(
     agent_id: str,
     original: AgentReaction,
@@ -332,6 +457,37 @@ def _final_state(
         ),
         social_bubble_id=bubble_id,
     )
+
+
+def _initial_round_summaries(
+    simulation_id: str,
+    event: NewsEvent,
+    frames: list[NewsFrame],
+    initial_reactions: list[AgentReaction],
+) -> list[RoundSummary]:
+    return [
+        RoundSummary(
+            simulation_id=simulation_id,
+            round_number=0,
+            label="Original event",
+            metrics={"title": event.title, "topic": event.topic},
+        ),
+        RoundSummary(
+            simulation_id=simulation_id,
+            round_number=1,
+            label="Media framings",
+            metrics={"frame_count": len(frames)},
+        ),
+        RoundSummary(
+            simulation_id=simulation_id,
+            round_number=2,
+            label="Initial reactions",
+            metrics={
+                "reaction_count": len(initial_reactions),
+                "stance_distribution": stance_distribution(initial_reactions),
+            },
+        ),
+    ]
 
 
 def _echo_reaction_reason(

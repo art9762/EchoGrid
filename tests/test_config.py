@@ -13,6 +13,8 @@ def test_settings_default_to_mock_provider(monkeypatch) -> None:
     settings = AppSettings.from_env()
 
     assert settings.llm_provider == LLMProvider.MOCK
+    assert settings.llm_max_workers == 4
+    assert settings.llm_request_timeout_seconds == 30
     assert settings.trinity_api_key is None
     assert settings.trinity_base_url is None
     assert settings.anthropic_reaction_model == "claude-haiku-4-5-20251001"

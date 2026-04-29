@@ -43,3 +43,39 @@ def test_run_initial_reactions_covers_agents_and_frames() -> None:
         "progressive",
     }
     assert {reaction.agent_id for reaction in reactions} == {agent.id for agent in agents}
+
+
+def test_reaction_source_trust_uses_media_diet_and_frame_source() -> None:
+    event = make_event()
+    agent = generate_population(PopulationConfig(population_size=1, seed=12))[0]
+    agent = agent.model_copy(
+        update={
+            "media_diet": ["expert_analysis", "public_broadcaster"],
+            "institutional_trust": 62,
+        }
+    )
+    trusted_frame = generate_framings(event, n=1)[0].model_copy(
+        update={"source_type": "expert_analysis"}
+    )
+    tabloid_frame = trusted_frame.model_copy(
+        update={"frame_id": "tabloid_outrage", "source_type": "tabloid"}
+    )
+
+    trusted = run_agent_reaction(agent, event, trusted_frame, mode="mock", seed=12)
+    tabloid = run_agent_reaction(agent, event, tabloid_frame, mode="mock", seed=12)
+
+    assert trusted.trust_in_source > tabloid.trust_in_source
+    assert tabloid.emotions.anger > trusted.emotions.anger
+
+
+def test_reaction_comments_vary_by_topic_and_agent_profile() -> None:
+    event = make_event()
+    agents = generate_population(PopulationConfig(population_size=25, seed=14))
+    frames = generate_framings(event, n=2)
+
+    reactions = run_initial_reactions(agents, event, frames, mode="mock", seed=14)
+
+    comments = {reaction.likely_comment for reaction in reactions}
+    reasons = {reaction.main_reason for reaction in reactions}
+    assert len(comments) >= 5
+    assert any("tax" in reason.lower() or "cost" in reason.lower() for reason in reasons)

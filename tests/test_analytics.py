@@ -3,7 +3,9 @@ from src.analytics import (
     emotion_averages,
     final_state_metrics,
     frame_comparison,
+    frame_sensitivity_score,
     narrative_risk_summary,
+    polarization_delta,
     polarization_score,
     segment_breakdown,
     share_likelihood_distribution,
@@ -84,6 +86,24 @@ def test_segment_breakdown_and_frame_comparison_return_rows() -> None:
     assert set(comparison) == {"neutral", "technocratic"}
 
 
+def test_frame_sensitivity_score_describes_framing_variation() -> None:
+    _, reactions = sample_reactions()
+
+    score = frame_sensitivity_score(reactions)
+
+    assert set(score) == {
+        "score",
+        "stance_spread",
+        "trust_spread",
+        "share_spread",
+        "highest_share_frame",
+        "lowest_trust_frame",
+    }
+    assert 0 <= score["score"] <= 100
+    assert score["highest_share_frame"] in {"neutral", "technocratic"}
+    assert score["lowest_trust_frame"] in {"neutral", "technocratic"}
+
+
 def test_segment_breakdown_supports_age_and_trust_buckets() -> None:
     agents, reactions = sample_reactions()
 
@@ -142,3 +162,25 @@ def test_final_state_metrics_and_narrative_risk_summary_describe_echo_layer() ->
     } <= set(breakdown)
     assert all({"raw_value", "weight", "weighted_contribution"} <= set(row) for row in breakdown.values())
     assert {"top_echo_type", "top_bubble", "highest_distortion_item"} <= set(risk)
+
+
+def test_polarization_delta_compares_initial_and_final_stance_motion() -> None:
+    event, agents, frames, reactions = sample_context()
+    actors = default_media_actors()
+    bubbles = default_social_bubbles()
+    assignments = assign_agents_to_bubbles(agents, bubbles)
+    result = run_echo_simulation(
+        agents=agents,
+        event=event,
+        frames=frames,
+        initial_reactions=reactions,
+        media_actors=actors,
+        bubbles=bubbles,
+        bubble_assignments=assignments,
+        seed=29,
+    )
+
+    delta = polarization_delta(reactions, result.echo_reactions)
+
+    assert -100 <= delta <= 100
+    assert delta != 0

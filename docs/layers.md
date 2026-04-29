@@ -2,14 +2,17 @@
 
 EchoGrid now has an explicit first-pass layering model. The goal is not heavy
 architecture for its own sake; the goal is to keep the synthetic simulation
-pipeline easy to test, easy to explain, and safe to extend toward hybrid LLM
-mode.
+pipeline easy to test, easy to explain, and safe to extend across mock, Hybrid,
+and capped Full LLM sample modes.
 
 ## Layer Map
 
 ```text
 app.py
-  UI layer: Streamlit controls, tabs, charts, downloads
+  Thin Streamlit entrypoint and test-compatible run wrapper
+
+src/ui/
+  UI layer: Streamlit setup controls, tabs, charts, downloads, demo mode
 
 src/simulation.py
   Application-service layer: one run orchestration, progress callbacks,
@@ -27,9 +30,11 @@ src/echo_engine.py
   final agent states
 
 src/llm_client.py
+src/llm_pipeline.py
 src/prompts/
   LLM gateway layer: provider clients, JSON parsing, typed Pydantic validation,
-  retry-on-invalid-output support, prompt templates
+  retry-on-invalid-output support, prompt templates, Hybrid and Full LLM sample
+  orchestration
 
 src/analytics.py
 src/report.py
@@ -47,21 +52,21 @@ src/guardrails.py
 
 ## Current Run Flow
 
-`app.py` gathers the scenario, frame selection, population size, seed, echo
-toggle, and provider label. It calls `src.simulation.run_simulation`, which
+`src/ui/setup.py` gathers the scenario, frame selection, population size, seed,
+echo controls, media preset, actor toggles, and provider label. It calls
+`src.simulation.run_simulation`, which
 owns the actual run:
 
-1. Generate synthetic agents with `src.population.generate_population`.
-2. Run deterministic initial reactions with `src.reaction_engine`.
-3. Create the media ecosystem and social bubbles.
-4. Optionally run the one-round echo layer with `src.echo_engine`.
-5. Persist the run through `src.storage.save_simulation`.
-6. Return a dashboard-compatible simulation dictionary.
+1. Optionally generate LLM framings in Hybrid or Full LLM sample mode.
+2. Generate synthetic agents with `src.population.generate_population`.
+3. Run deterministic initial reactions with `src.reaction_engine`, or capped per-agent/frame LLM reactions in Full LLM sample mode.
+4. Create the media ecosystem and social bubbles.
+5. Optionally generate LLM echo artifacts and representative comments.
+6. Optionally run bounded multi-round echo layers with `src.echo_engine`.
+7. Persist the run through `src.storage.save_simulation`.
+8. Return a dashboard-compatible simulation dictionary.
 
-The selected provider is stored in metadata, but the runtime mode is still
-`mock`. This is deliberate: full provider execution should only be enabled with
-cost estimation, explicit UI controls, API-key checks, JSON validation, and
-clear partial-failure behavior.
+Provider and runtime mode are stored in metadata. LLM errors and representative comments are persisted in the simulation payload so previous-run loading can restore the demo surface.
 
 ## New Contracts
 
@@ -76,6 +81,7 @@ clear partial-failure behavior.
   sharing, and shift metrics.
 - `src.analytics.narrative_risk_summary(...)` highlights the dominant echo type,
   highest-risk bubble, and highest-distortion item for review.
+- `src.llm_pipeline.generate_full_sample_reactions(...)` performs capped per-agent/frame LLM calls with per-call fallback and progress reporting.
 
 ## Testing Surface
 
@@ -89,12 +95,4 @@ clear partial-failure behavior.
 
 ## Extension Notes
 
-The next safe LLM slice is hybrid mode for selected generation tasks, not
-full-scale per-agent calls. A conservative order is:
-
-1. Add cost estimation before any non-mock provider call.
-2. Add provider-specific generation methods that use `complete_model`.
-3. Start with low-volume generation such as framings, echo items, or
-   representative comments.
-4. Store provider errors and partial outputs so the simulation can continue
-   safely when one generation step fails.
+Future extensions should keep the same safety shape: bounded calls, visible cost estimates, explicit provider readiness checks, partial-failure storage, and synthetic-use disclaimers in every export.

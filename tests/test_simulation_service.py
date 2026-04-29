@@ -41,7 +41,17 @@ def test_run_simulation_service_orchestrates_and_persists_a_mock_run(tmp_path) -
     assert len(simulation["agents"]) == 15
     assert len(simulation["initial_reactions"]) == 30
     assert simulation["echo_result"] is not None
-    assert simulation["metadata"] == {
+    assert {
+        key: simulation["metadata"][key]
+        for key in [
+            "provider",
+            "runtime_mode",
+            "population_size",
+            "seed",
+            "echo_enabled",
+            "echo_rounds",
+        ]
+    } == {
         "provider": "mock",
         "runtime_mode": "mock",
         "population_size": 15,
@@ -49,6 +59,7 @@ def test_run_simulation_service_orchestrates_and_persists_a_mock_run(tmp_path) -
         "echo_enabled": True,
         "echo_rounds": 1,
     }
+    assert simulation["metadata"]["media_preset"] == "balanced"
     assert progress_updates[0] == ("Generating synthetic population...", 10)
     assert progress_updates[-1] == ("Simulation saved.", 100)
     assert list_simulations(tmp_path / "echogrid.sqlite3")[0]["simulation_id"] == simulation[

@@ -90,6 +90,49 @@ def test_run_echo_simulation_returns_result_with_metrics() -> None:
     } <= set(result.amplification_metrics)
 
 
+def test_run_echo_simulation_supports_multiple_rounds() -> None:
+    event, agents, frames, reactions, actors, bubbles, assignments = sample_echo_context(40)
+
+    result = run_echo_simulation(
+        agents=agents,
+        event=event,
+        frames=frames,
+        initial_reactions=reactions,
+        media_actors=actors,
+        bubbles=bubbles,
+        bubble_assignments=assignments,
+        mode="mock",
+        seed=31,
+        echo_rounds=2,
+    )
+
+    assert {item.round_number for item in result.echo_items} == {1, 2}
+    assert len(result.echo_reactions) == len(agents) * 2
+    assert [summary.round_number for summary in result.round_summaries] == [0, 1, 2, 3, 4]
+    assert result.round_summaries[-1].label == "Echo reactions round 2"
+    assert len(result.final_reaction_state_by_agent) == len(agents)
+
+
+def test_generate_echo_items_can_emit_multiple_items_per_actor() -> None:
+    event, _, frames, reactions, actors, bubbles, _ = sample_echo_context(40)
+
+    items = generate_echo_items(
+        event=event,
+        frames=frames,
+        reactions=reactions,
+        media_actors=actors,
+        bubbles=bubbles,
+        mode="mock",
+        seed=41,
+        items_per_actor=(1, 3),
+    )
+
+    assert len(items) >= len(actors)
+    assert len(items) <= len(actors) * 3
+    assert {item.round_number for item in items} == {1}
+    assert any(item.echo_type.value == "meme_caption" for item in items)
+
+
 def test_run_echo_simulation_accepts_echo_items_override() -> None:
     event, agents, frames, reactions, actors, bubbles, assignments = sample_echo_context(40)
     custom_item = EchoItem(

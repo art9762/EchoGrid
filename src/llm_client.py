@@ -17,13 +17,13 @@ from src.schemas import (
     RepresentativeComment,
 )
 
-
 T = TypeVar("T")
 
 
 class LLMClient(ABC):
-    def __init__(self, model: str | None = None) -> None:
+    def __init__(self, model: str | None = None, timeout_seconds: int | None = None) -> None:
         self.model = model
+        self.timeout_seconds = timeout_seconds
 
     def complete_json(self, prompt: str, max_tokens: int = 1500) -> dict[str, Any]:
         return parse_json_response(self.complete_text(prompt, max_tokens=max_tokens))
@@ -111,9 +111,14 @@ class MockLLMClient(LLMClient):
 
 class TrinityLLMClient(LLMClient):
     def __init__(
-        self, api_key: str, base_url: str, model: str, provider_label: str
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        provider_label: str,
+        timeout_seconds: int | None = None,
     ) -> None:
-        super().__init__(model=model)
+        super().__init__(model=model, timeout_seconds=timeout_seconds)
         self.api_key = api_key
         self.base_url = base_url
         self.provider_label = provider_label
@@ -121,7 +126,11 @@ class TrinityLLMClient(LLMClient):
     def complete_text(self, prompt: str, max_tokens: int = 1500) -> str:
         from openai import OpenAI
 
-        client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=self.timeout_seconds,
+        )
         response = client.chat.completions.create(
             model=self.model or "",
             max_tokens=max_tokens,
@@ -140,8 +149,10 @@ class TrinityLLMClient(LLMClient):
 
 
 class GeminiLLMClient(LLMClient):
-    def __init__(self, api_key: str, model: str) -> None:
-        super().__init__(model=model)
+    def __init__(
+        self, api_key: str, model: str, timeout_seconds: int | None = None
+    ) -> None:
+        super().__init__(model=model, timeout_seconds=timeout_seconds)
         self.api_key = api_key
 
     def complete_text(self, prompt: str, max_tokens: int = 1500) -> str:
@@ -169,6 +180,7 @@ def build_llm_client(settings: AppSettings) -> LLMClient:
             settings=settings,
             provider_label="anthropic",
             model=settings.anthropic_echo_model,
+            timeout_seconds=settings.llm_request_timeout_seconds,
         )
     if settings.llm_provider == LLMProvider.GEMINI:
         if not settings.gemini_api_key:
@@ -176,18 +188,23 @@ def build_llm_client(settings: AppSettings) -> LLMClient:
         return GeminiLLMClient(
             api_key=settings.gemini_api_key,
             model=settings.gemini_echo_model,
+            timeout_seconds=settings.llm_request_timeout_seconds,
         )
     if settings.llm_provider == LLMProvider.OPENAI:
         return _build_trinity_client(
             settings=settings,
             provider_label="openai",
             model=settings.openai_echo_model,
+            timeout_seconds=settings.llm_request_timeout_seconds,
         )
     raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
 
 
 def _build_trinity_client(
-    settings: AppSettings, provider_label: str, model: str
+    settings: AppSettings,
+    provider_label: str,
+    model: str,
+    timeout_seconds: int | None = None,
 ) -> TrinityLLMClient:
     if not settings.trinity_api_key:
         raise ValueError(f"TRINITY_API_KEY is required for {provider_label} mode")
@@ -198,6 +215,7 @@ def _build_trinity_client(
         base_url=settings.trinity_base_url,
         model=model,
         provider_label=provider_label,
+        timeout_seconds=timeout_seconds,
     )
 
 
