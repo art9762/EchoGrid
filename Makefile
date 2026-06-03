@@ -2,7 +2,7 @@ PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 STREAMLIT ?= .venv/bin/streamlit
 
-.PHONY: install test smoke lint format run clean
+.PHONY: install test smoke lint format run clean reindex
 
 install:
 	python3 -m venv .venv
@@ -22,6 +22,9 @@ format:
 
 run:
 	$(STREAMLIT) run app.py
+
+reindex:
+	$(PYTHON) scripts/reindex_memory.py
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage

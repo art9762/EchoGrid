@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EchoGrid — Interactive Demo</title>
+  <meta name="description" content="Run a synthetic echo simulation in your browser. EchoGrid's interactive demo builds a synthetic population, frames a public event, and animates an echo cascade with before/after metrics. All outputs are synthetic — not real opinions." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Inherit the full landing design system FIRST, then layer demo styles. -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <a class="skip-link" href="#demo-main" data-i18n="skip">Skip to content</a>
+
+  <!-- ============ NAVBAR (mirrors index.html exactly) ============ -->
+  <header class="nav-wrap">
+    <nav class="nav glass" aria-label="Primary">
+      <a class="brand" href="index.html" aria-label="EchoGrid home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="2.5"></circle>
+            <circle cx="12" cy="12" r="6.5" opacity="0.6"></circle>
+            <circle cx="12" cy="12" r="10.5" opacity="0.3"></circle>
+          </svg>
+        </span>
+        <span class="brand-name">EchoGrid</span>
+      </a>
+
+      <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <div class="nav-links" id="nav-links">
+        <a href="index.html#what" data-i18n="nav.what">What</a>
+        <a href="index.html#how" data-i18n="nav.how">How</a>
+        <a href="index.html#features" data-i18n="nav.features">Features</a>
+        <a href="index.html#ethics" data-i18n="nav.ethics">Ethics</a>
+        <a href="demo.html" class="is-current" aria-current="page" data-i18n="nav.demo">Demo</a>
+
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <button data-lang="en" class="lang-btn is-active" aria-pressed="true">EN</button>
+          <span class="lang-sep" aria-hidden="true">|</span>
+          <button data-lang="ru" class="lang-btn" aria-pressed="false">RU</button>
+        </div>
+
+        <a href="#" class="btn btn-ghost nav-gh" aria-label="View EchoGrid on GitHub">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.71-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.84 1.22 1.84 1.22 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.58-2.67-.3-5.47-1.31-5.47-5.83 0-1.29.47-2.34 1.23-3.17-.12-.3-.53-1.51.12-3.15 0 0 1-.32 3.3 1.21a11.6 11.6 0 0 1 6 0c2.3-1.53 3.3-1.21 3.3-1.21.65 1.64.24 2.85.12 3.15.77.83 1.23 1.88 1.23 3.17 0 4.53-2.81 5.53-5.49 5.82.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .31.21.68.83.56A12.02 12.02 0 0 0 24 12.29C24 5.78 18.63.5 12 .5z"/></svg>
+          <span data-i18n="nav.github">GitHub</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="demo-main">
+    <!-- ============ HERO-LITE INTRO ============ -->
+    <section class="demo-hero">
+      <canvas id="demo-hero-canvas" aria-hidden="true"></canvas>
+      <div class="hero-fallback demo-hero-fallback" aria-hidden="true"></div>
+      <div class="demo-hero-veil" aria-hidden="true"></div>
+
+      <div class="container demo-hero-inner">
+        <p class="kicker" data-i18n="demo.kicker">Interactive demo</p>
+        <h1 class="section-title demo-hero-title" data-i18n="demo.title">Run a synthetic echo simulation</h1>
+        <p class="demo-hero-note" data-i18n="demo.disclaimer">Everything below is synthetic — generated in your browser from a deterministic mock model. Not a poll, not a prediction, not real opinions.</p>
+      </div>
+    </section>
+
+    <!-- ============ CONTROL ROOM ============ -->
+    <section class="section demo-section">
+      <div class="container demo-grid">
+
+        <!-- ----- Setup panel ----- -->
+        <form class="glass demo-setup" id="demo-form" aria-labelledby="demo-setup-title">
+          <h2 class="demo-panel-title" id="demo-setup-title" data-i18n="demo.setup.title">Configure your run</h2>
+
+          <label class="demo-field-label" for="demo-event" data-i18n="demo.setup.eventLabel">Public event</label>
+          <input
+            class="demo-input"
+            id="demo-event"
+            name="event"
+            type="text"
+            autocomplete="off"
+            data-i18n-placeholder="demo.setup.eventPlaceholder"
+            placeholder="Enter a public event…" />
+
+          <p class="demo-field-hint" data-i18n="demo.setup.chipsLabel">Or pick a built-in scenario:</p>
+          <ul class="demo-chips" id="demo-chips" aria-label="Demo scenarios">
+            <li><button type="button" class="demo-chip" data-scenario="1"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.1">Emissions-based car tax</span></button></li>
+            <li><button type="button" class="demo-chip" data-scenario="2"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.2">AI surveillance in public spaces</span></button></li>
+            <li><button type="button" class="demo-chip" data-scenario="3"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.3">Four-day work week proposal</span></button></li>
+            <li><button type="button" class="demo-chip" data-scenario="4"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.4">Mandatory digital ID</span></button></li>
+            <li><button type="button" class="demo-chip" data-scenario="5"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.5">Housing policy reform</span></button></li>
+            <li><button type="button" class="demo-chip" data-scenario="6"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.6">University bans phones in classrooms</span></button></li>
+            <li><button type="button" class="demo-chip" data-scenario="7"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.7">City restricts short-term rentals</span></button></li>
+          </ul>
+
+          <div class="demo-sliders">
+            <div class="demo-slider-row">
+              <div class="demo-slider-head">
+                <label class="demo-field-label" for="demo-pop" data-i18n="demo.setup.popLabel">Population size</label>
+                <output class="demo-slider-val" id="demo-pop-val" for="demo-pop">500</output>
+              </div>
+              <input class="demo-range" id="demo-pop" name="population" type="range" min="100" max="1000" step="50" value="500" />
+            </div>
+
+            <div class="demo-slider-row">
+              <div class="demo-slider-head">
+                <label class="demo-field-label" for="demo-rounds" data-i18n="demo.setup.roundsLabel">Echo rounds</label>
+                <output class="demo-slider-val" id="demo-rounds-val" for="demo-rounds">2</output>
+              </div>
+              <input class="demo-range" id="demo-rounds" name="rounds" type="range" min="1" max="3" step="1" value="2" />
+            </div>
+          </div>
+
+          <button class="btn btn-primary demo-run" id="demo-run" type="submit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span data-i18n="demo.setup.run">Run simulation</span>
+          </button>
+        </form>
+
+        <!-- ----- Cascade canvas (centerpiece) ----- -->
+        <div class="glass demo-stage">
+          <div class="demo-stage-head">
+            <span class="demo-stage-kicker" data-i18n="demo.stage.kicker">Echo cascade</span>
+            <span class="demo-status" id="demo-status" data-i18n="demo.stage.idle">Configure a run and press play.</span>
+          </div>
+          <div class="demo-canvas-wrap">
+            <canvas id="demo-cascade" aria-hidden="true"></canvas>
+            <div class="demo-canvas-placeholder" id="demo-canvas-placeholder" aria-hidden="true">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M12 2a10 10 0 0 1 10 10M12 6a6 6 0 0 1 6 6M12 18a6 6 0 0 1-6-6M12 22A10 10 0 0 1 2 12"/></svg>
+              <span data-i18n="demo.stage.placeholder">The synthetic echo grid appears here on run.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ----- Results dashboard ----- -->
+      <div class="container demo-results" id="demo-results" hidden>
+        <p class="demo-live" id="demo-live" role="status" aria-live="polite"></p>
+
+        <div class="demo-results-head">
+          <h2 class="demo-panel-title" data-i18n="demo.results.title">Simulation results</h2>
+          <span class="demo-synthetic-tag" data-i18n="demo.results.tag">Synthetic — not real opinions</span>
+        </div>
+        <p class="demo-results-sub" id="demo-results-sub"></p>
+
+        <!-- Stance distribution -->
+        <div class="demo-block">
+          <h3 class="demo-block-title" data-i18n="demo.results.stanceTitle">Stance distribution (after echo)</h3>
+          <div class="demo-bars" id="demo-bars"></div>
+        </div>
+
+        <!-- Before / after metric cards -->
+        <div class="demo-block">
+          <h3 class="demo-block-title" data-i18n="demo.results.metricsTitle">Before → after metrics</h3>
+          <div class="demo-metrics" id="demo-metrics"></div>
+        </div>
+
+        <!-- Representative synthetic comments -->
+        <div class="demo-block">
+          <h3 class="demo-block-title" data-i18n="demo.results.commentsTitle">Representative synthetic reactions</h3>
+          <ul class="demo-comments" id="demo-comments"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER (mirrors index.html exactly) ============ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="12" r="6.5" opacity="0.6"/><circle cx="12" cy="12" r="10.5" opacity="0.3"/></svg>
+        </span>
+        <span class="brand-name">EchoGrid</span>
+      </div>
+      <p class="footer-disclaimer" data-i18n="footer.disclaimer">All EchoGrid results are synthetic simulation outputs — not measurements of real public opinion.</p>
+      <div class="footer-meta">
+        <a href="#">GitHub</a>
+        <a href="#" data-i18n="footer.docs">Docs</a>
+        <span class="footer-license" data-i18n="footer.license">MIT License</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="demo.js" type="module"></script>
+</body>
+</html>

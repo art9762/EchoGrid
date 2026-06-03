@@ -18,3 +18,14 @@ data/*.sqlite-*
 data/exports/*.csv
 data/exports/*.json
 data/simulations/*.json
+
+# Large artifacts / local runtime (not for git)
+*.zip
+ruvector.db
+.swarm/
+.claude-flow/
+*.db-journal
+
+# local tooling state & old backup
+.claude/
+_old/

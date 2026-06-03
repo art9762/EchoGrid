@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EchoGrid — Synthetic Society Simulator</title>
+  <meta name="description" content="EchoGrid is an LLM-assisted synthetic society simulator for exploring how public messages trigger reactions, move through media ecosystems, and become amplified, distorted, or polarized by echo effects." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#hero" data-i18n="skip">Skip to content</a>
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="nav-wrap">
+    <nav class="nav glass" aria-label="Primary">
+      <a class="brand" href="#hero" aria-label="EchoGrid home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="2.5"></circle>
+            <circle cx="12" cy="12" r="6.5" opacity="0.6"></circle>
+            <circle cx="12" cy="12" r="10.5" opacity="0.3"></circle>
+          </svg>
+        </span>
+        <span class="brand-name">EchoGrid</span>
+      </a>
+
+      <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <div class="nav-links" id="nav-links">
+        <a href="#what" data-i18n="nav.what">What</a>
+        <a href="#how" data-i18n="nav.how">How</a>
+        <a href="#features" data-i18n="nav.features">Features</a>
+        <a href="#ethics" data-i18n="nav.ethics">Ethics</a>
+        <a href="demo.html" data-i18n="nav.demo">Demo</a>
+
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <button data-lang="en" class="lang-btn is-active" aria-pressed="true">EN</button>
+          <span class="lang-sep" aria-hidden="true">|</span>
+          <button data-lang="ru" class="lang-btn" aria-pressed="false">RU</button>
+        </div>
+
+        <a href="#" class="btn btn-ghost nav-gh" aria-label="View EchoGrid on GitHub">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.71-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.84 1.22 1.84 1.22 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.58-2.67-.3-5.47-1.31-5.47-5.83 0-1.29.47-2.34 1.23-3.17-.12-.3-.53-1.51.12-3.15 0 0 1-.32 3.3 1.21a11.6 11.6 0 0 1 6 0c2.3-1.53 3.3-1.21 3.3-1.21.65 1.64.24 2.85.12 3.15.77.83 1.23 1.88 1.23 3.17 0 4.53-2.81 5.53-5.49 5.82.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .31.21.68.83.56A12.02 12.02 0 0 0 24 12.29C24 5.78 18.63.5 12 .5z"/></svg>
+          <span data-i18n="nav.github">GitHub</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section id="hero" class="hero">
+      <canvas id="echo-canvas" aria-hidden="true"></canvas>
+      <div class="hero-fallback" aria-hidden="true"></div>
+      <div class="hero-veil" aria-hidden="true"></div>
+
+      <div class="hero-inner container">
+        <p class="eyebrow reveal" data-i18n="hero.eyebrow">LLM-assisted synthetic society simulator</p>
+        <h1 class="hero-title reveal" data-i18n="hero.title">Watch a message ripple across a synthetic society.</h1>
+        <p class="hero-tagline reveal" data-i18n="hero.tagline">EchoGrid simulates how a public event triggers reactions, travels through a media ecosystem, and gets amplified, distorted, or polarized by echo effects — using synthetic agents, not real people.</p>
+        <div class="hero-cta reveal">
+          <a href="#" class="btn btn-primary" aria-label="View EchoGrid on GitHub">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.71-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.84 1.22 1.84 1.22 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.58-2.67-.3-5.47-1.31-5.47-5.83 0-1.29.47-2.34 1.23-3.17-.12-.3-.53-1.51.12-3.15 0 0 1-.32 3.3 1.21a11.6 11.6 0 0 1 6 0c2.3-1.53 3.3-1.21 3.3-1.21.65 1.64.24 2.85.12 3.15.77.83 1.23 1.88 1.23 3.17 0 4.53-2.81 5.53-5.49 5.82.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .31.21.68.83.56A12.02 12.02 0 0 0 24 12.29C24 5.78 18.63.5 12 .5z"/></svg>
+            <span data-i18n="hero.cta1">View on GitHub</span>
+          </a>
+          <a href="#how" class="btn btn-secondary">
+            <span data-i18n="hero.cta2">See how it works</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </a>
+        </div>
+        <p class="hero-note reveal" data-i18n="hero.note">Runs locally as a Streamlit app · Deterministic mock mode needs no API keys · MIT</p>
+      </div>
+
+      <a href="#what" class="scroll-hint" aria-label="Scroll down">
+        <span data-i18n="hero.scroll">Scroll</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </a>
+    </section>
+
+    <!-- ============ WHAT IT IS / IS NOT ============ -->
+    <section id="what" class="section">
+      <div class="container">
+        <header class="section-head reveal">
+          <span class="kicker" data-i18n="what.kicker">Positioning</span>
+          <h2 class="section-title" data-i18n="what.title">A hypothesis lab — not a crystal ball</h2>
+          <p class="section-lead" data-i18n="what.lead">EchoGrid generates synthetic simulation outputs to explore communication dynamics. Treat them as ideas to test, never as measured public opinion.</p>
+        </header>
+
+        <div class="contrast-grid">
+          <article class="panel glass panel-is reveal">
+            <div class="panel-tag panel-tag-is">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              <span data-i18n="what.isLabel">What it is</span>
+            </div>
+            <h3 class="panel-title" data-i18n="what.isHead">A synthetic society simulator</h3>
+            <ul class="panel-list">
+              <li data-i18n="what.is1">Builds synthetic agents with demographic, economic, psychological, social, and media-consumption profiles.</li>
+              <li data-i18n="what.is2">Simulates media framings of a public event and each agent's initial reaction.</li>
+              <li data-i18n="what.is3">Propagates social and media echo items through multi-round cascades inside bubbles.</li>
+              <li data-i18n="what.is4">Reports before/after metrics: amplification, trust, anger, distortion, polarization.</li>
+            </ul>
+          </article>
+
+          <article class="panel glass panel-not reveal">
+            <div class="panel-tag panel-tag-not">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <span data-i18n="what.notLabel">What it is not</span>
+            </div>
+            <h3 class="panel-title" data-i18n="what.notHead">Not a poll, not a prediction</h3>
+            <ul class="panel-list panel-list-not">
+              <li data-i18n="what.not1">Not a polling tool — it does not measure or predict actual public opinion.</li>
+              <li data-i18n="what.not2">Not scientifically calibrated — mock mode is plausible and deterministic, not survey evidence.</li>
+              <li data-i18n="what.not3">Not a persuasion optimizer — never for manipulation or political targeting.</li>
+              <li data-i18n="what.not4">Not for harm — no harassment, radicalization, or targeting of vulnerable groups.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section id="how" class="section section-how">
+      <div class="container">
+        <header class="section-head reveal">
+          <span class="kicker" data-i18n="how.kicker">Pipeline</span>
+          <h2 class="section-title" data-i18n="how.title">How it works</h2>
+          <p class="section-lead" data-i18n="how.lead">One news event flows through six deterministic stages. Each stage feeds the next, ending in measurable before/after metrics.</p>
+        </header>
+
+        <ol class="pipeline" aria-label="Six-step simulation pipeline">
+          <li class="pstep glass reveal" data-step="1">
+            <span class="pstep-num">01</span>
+            <div class="pstep-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/></svg>
+            </div>
+            <h3 class="pstep-title" data-i18n="how.s1t">News event</h3>
+            <p class="pstep-desc" data-i18n="how.s1d">Enter or pick a public information event to test.</p>
+          </li>
+          <li class="pstep glass reveal" data-step="2">
+            <span class="pstep-num">02</span>
+            <div class="pstep-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3 class="pstep-title" data-i18n="how.s2t">Synthetic population</h3>
+            <p class="pstep-desc" data-i18n="how.s2d">Generate up to 1000 agents with rich profiles.</p>
+          </li>
+          <li class="pstep glass reveal" data-step="3">
+            <span class="pstep-num">03</span>
+            <div class="pstep-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+            </div>
+            <h3 class="pstep-title" data-i18n="how.s3t">Media framings</h3>
+            <p class="pstep-desc" data-i18n="how.s3d">Outlets frame the event across an ecosystem.</p>
+          </li>
+          <li class="pstep glass reveal" data-step="4">
+            <span class="pstep-num">04</span>
+            <div class="pstep-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3 class="pstep-title" data-i18n="how.s4t">Initial reactions</h3>
+            <p class="pstep-desc" data-i18n="how.s4d">Each agent reacts to the framings it sees.</p>
+          </li>
+          <li class="pstep glass reveal" data-step="5">
+            <span class="pstep-num">05</span>
+            <div class="pstep-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M12 2a10 10 0 0 1 10 10M12 6a6 6 0 0 1 6 6M12 18a6 6 0 0 1-6-6M12 22A10 10 0 0 1 2 12"/></svg>
+            </div>
+            <h3 class="pstep-title" data-i18n="how.s5t">Echo cascade</h3>
+            <p class="pstep-desc" data-i18n="how.s5d">Echo items ripple through bubbles in rounds.</p>
+          </li>
+          <li class="pstep glass reveal" data-step="6">
+            <span class="pstep-num">06</span>
+            <div class="pstep-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <h3 class="pstep-title" data-i18n="how.s6t">Final metrics</h3>
+            <p class="pstep-desc" data-i18n="how.s6d">Compare before/after, then store and export.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section id="features" class="section">
+      <div class="container">
+        <header class="section-head reveal">
+          <span class="kicker" data-i18n="feat.kicker">Capabilities</span>
+          <h2 class="section-title" data-i18n="feat.title">Built for serious exploration</h2>
+          <p class="section-lead" data-i18n="feat.lead">A full simulation stack — population, media, cascades, metrics, storage, and tunable run modes — running locally.</p>
+        </header>
+
+        <div class="stats reveal" aria-label="Key numbers">
+          <div class="stat">
+            <span class="stat-num" data-count="1000">1000</span>
+            <span class="stat-label" data-i18n="feat.stat1">synthetic agents</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" data-count="7">7</span>
+            <span class="stat-label" data-i18n="feat.stat2">demo scenarios</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" data-count="3">3</span>
+            <span class="stat-label" data-i18n="feat.stat3">run modes</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num" data-count="5">5</span>
+            <span class="stat-label" data-i18n="feat.stat4">echo metrics</span>
+          </div>
+        </div>
+
+        <div class="bento">
+          <article class="card glass reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3 class="card-title" data-i18n="feat.c1t">Synthetic population profiles</h3>
+            <p class="card-desc" data-i18n="feat.c1d">Agents with demographic, economic, psychological, social, and media-consumption attributes.</p>
+          </article>
+
+          <article class="card glass reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/><rect x="2" y="2" width="20" height="20" rx="3"/></svg>
+            </div>
+            <h3 class="card-title" data-i18n="feat.c2t">Media ecosystem</h3>
+            <p class="card-desc" data-i18n="feat.c2d">Configurable outlets and presets that frame the same event in competing ways.</p>
+          </article>
+
+          <article class="card glass reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><path d="M12 4a8 8 0 0 1 8 8M12 7a5 5 0 0 1 5 5M12 17a5 5 0 0 1-5-5M12 20a8 8 0 0 1-8-8"/></svg>
+            </div>
+            <h3 class="card-title" data-i18n="feat.c3t">Multi-round echo cascades</h3>
+            <p class="card-desc" data-i18n="feat.c3d">Bounded multi-round propagation of echo items inside social bubbles.</p>
+          </article>
+
+          <article class="card glass reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg>
+            </div>
+            <h3 class="card-title" data-i18n="feat.c4t">Before / after metrics</h3>
+            <p class="card-desc" data-i18n="feat.c4d">Amplification, trust, anger, distortion, and polarization, compared end to end.</p>
+          </article>
+
+          <article class="card glass reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+            </div>
+            <h3 class="card-title" data-i18n="feat.c5t">Storage &amp; export</h3>
+            <p class="card-desc" data-i18n="feat.c5d">SQLite persistence with CSV, JSON, and full ZIP bundle exports of every run.</p>
+          </article>
+
+          <article class="card glass reveal">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+            </div>
+            <h3 class="card-title" data-i18n="feat.c6t">Three run modes</h3>
+            <p class="card-desc" data-i18n="feat.c6d">Mock (fully local), Hybrid (bounded LLM calls), and capped Full LLM sample.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DEMO SCENARIOS ============ -->
+    <section id="scenarios" class="section section-scenarios">
+      <div class="container">
+        <header class="section-head reveal">
+          <span class="kicker" data-i18n="scen.kicker">Demo scenarios</span>
+          <h2 class="section-title" data-i18n="scen.title">Seven events, ready to run</h2>
+          <p class="section-lead" data-i18n="scen.lead">Built-in scenarios you can launch in mock mode without a single API key.</p>
+        </header>
+
+        <ul class="chips reveal" aria-label="Built-in demo scenarios">
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.1">Emissions-based car tax</span></li>
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.2">AI surveillance in public spaces</span></li>
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.3">Four-day work week proposal</span></li>
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.4">Mandatory digital ID</span></li>
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.5">Housing policy reform</span></li>
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.6">University bans phones in classrooms</span></li>
+          <li class="chip"><span class="chip-dot" aria-hidden="true"></span><span data-i18n="scen.7">City restricts short-term rentals</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ ETHICS ============ -->
+    <section id="ethics" class="section">
+      <div class="container">
+        <div class="ethics glass reveal">
+          <div class="ethics-glow" aria-hidden="true"></div>
+          <header class="section-head ethics-head">
+            <span class="kicker" data-i18n="eth.kicker">Responsible use</span>
+            <h2 class="section-title" data-i18n="eth.title">Use it to understand, never to manipulate</h2>
+            <p class="section-lead" data-i18n="eth.lead">EchoGrid produces synthetic outputs as hypothesis-generation artifacts. These boundaries are not optional.</p>
+          </header>
+
+          <div class="ethics-cols">
+            <div class="ethics-col ethics-allow">
+              <h3 class="ethics-col-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <span data-i18n="eth.allowLabel">Allowed</span>
+              </h3>
+              <ul class="ethics-list">
+                <li data-i18n="eth.allow1">Research and hypothesis generation</li>
+                <li data-i18n="eth.allow2">Education and teaching media literacy</li>
+                <li data-i18n="eth.allow3">Communication-risk analysis</li>
+                <li data-i18n="eth.allow4">Media-dynamics exploration</li>
+              </ul>
+            </div>
+            <div class="ethics-col ethics-deny">
+              <h3 class="ethics-col-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+                <span data-i18n="eth.denyLabel">Disallowed</span>
+              </h3>
+              <ul class="ethics-list ethics-list-deny">
+                <li data-i18n="eth.deny1">Optimizing manipulative persuasion</li>
+                <li data-i18n="eth.deny2">Political targeting</li>
+                <li data-i18n="eth.deny3">Harassment or radicalization</li>
+                <li data-i18n="eth.deny4">Targeting vulnerable groups</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FOOTER / CTA ============ -->
+    <section id="run" class="section section-run">
+      <div class="container">
+        <div class="run-card glass reveal">
+          <span class="kicker" data-i18n="run.kicker">Get started</span>
+          <h2 class="section-title" data-i18n="run.title">Run it locally</h2>
+          <p class="section-lead" data-i18n="run.lead">Clone the repo, install requirements, and launch the Streamlit dashboard. Mock mode runs with zero API keys.</p>
+
+          <div class="code-block" role="group" aria-label="Run command">
+            <div class="code-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <pre><code><span class="code-prompt">$</span> streamlit run app.py</code></pre>
+            <button class="code-copy" data-copy="streamlit run app.py" aria-label="Copy command">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span class="code-copy-label" data-i18n="run.copy">Copy</span>
+            </button>
+          </div>
+
+          <div class="run-cta">
+            <a href="#" class="btn btn-primary" aria-label="View EchoGrid on GitHub">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.71-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.84 1.22 1.84 1.22 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.58-2.67-.3-5.47-1.31-5.47-5.83 0-1.29.47-2.34 1.23-3.17-.12-.3-.53-1.51.12-3.15 0 0 1-.32 3.3 1.21a11.6 11.6 0 0 1 6 0c2.3-1.53 3.3-1.21 3.3-1.21.65 1.64.24 2.85.12 3.15.77.83 1.23 1.88 1.23 3.17 0 4.53-2.81 5.53-5.49 5.82.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .31.21.68.83.56A12.02 12.02 0 0 0 24 12.29C24 5.78 18.63.5 12 .5z"/></svg>
+              <span data-i18n="run.gh">View on GitHub</span>
+            </a>
+            <a href="#" class="btn btn-ghost">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span data-i18n="run.docs">Read the docs</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="12" r="6.5" opacity="0.6"/><circle cx="12" cy="12" r="10.5" opacity="0.3"/></svg>
+        </span>
+        <span class="brand-name">EchoGrid</span>
+      </div>
+      <p class="footer-disclaimer" data-i18n="footer.disclaimer">All EchoGrid results are synthetic simulation outputs — not measurements of real public opinion.</p>
+      <div class="footer-meta">
+        <a href="#">GitHub</a>
+        <a href="#" data-i18n="footer.docs">Docs</a>
+        <span class="footer-license" data-i18n="footer.license">MIT License</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="main.js" type="module"></script>
+</body>
+</html>
