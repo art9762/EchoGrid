@@ -437,6 +437,9 @@ button { font: inherit; color: inherit; background: none; border: none; }
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
   counter-reset: step;
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
 }
 .pstep {
   position: relative;
