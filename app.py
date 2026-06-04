@@ -11,6 +11,7 @@ from src.schemas import LLMProvider, NewsEvent
 from src.simulation import run_simulation as run_simulation_service
 from src.ui.dashboard import render_dashboard, render_empty_state
 from src.ui.setup import render_setup_panel
+from src.ui.theme import inject_theme
 
 
 def _run_simulation(
@@ -51,14 +52,42 @@ def _run_simulation(
     )
 
 
+_LOGO_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+     fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" style="display:inline;vertical-align:middle;margin-right:10px">
+  <circle cx="12" cy="12" r="10"/>
+  <path d="M12 8v4l3 3"/>
+  <path d="M2 12h2M20 12h2M12 2v2M12 20v2"/>
+</svg>"""
+
+_INFO_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+     fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" style="display:inline;vertical-align:middle;margin-right:6px">
+  <circle cx="12" cy="12" r="10"/>
+  <path d="M12 16v-4M12 8h.01"/>
+</svg>"""
+
+
 def main() -> None:
-    st.set_page_config(page_title="EchoGrid", layout="wide")
-    st.title("EchoGrid")
-    st.caption(
-        "Synthetic society simulator for media dynamics, echo effects, and communication-risk analysis."
+    st.set_page_config(page_title="EchoGrid", layout="wide", page_icon="")
+    inject_theme()
+
+    st.markdown(
+        f"<h1 style=\"font-family:'Exo',sans-serif;font-weight:700;font-size:2rem;"
+        f'color:#E6EAF5;margin-bottom:0.2rem">'
+        f"{_LOGO_SVG}EchoGrid</h1>"
+        f'<p style="color:#94A3B8;font-size:0.95rem;margin-top:0;margin-bottom:1.2rem">'
+        f"Synthetic society simulator for media dynamics, echo effects, and communication-risk "
+        f"analysis.</p>",
+        unsafe_allow_html=True,
     )
-    st.warning(SYNTHETIC_SIMULATION_DISCLAIMER)
-    st.info(ETHICAL_USE_DISCLAIMER)
+
+    with st.container():
+        st.warning(SYNTHETIC_SIMULATION_DISCLAIMER)
+    with st.container():
+        st.info(ETHICAL_USE_DISCLAIMER)
 
     settings = get_settings()
     simulation = render_setup_panel(settings=settings, run_simulation=_run_simulation)

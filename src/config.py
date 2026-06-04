@@ -32,6 +32,8 @@ class AppSettings(EchoGridModel):
     trinity_api_key: str | None = None
     trinity_base_url: str | None = None
     gemini_api_key: str | None = None
+    anthropic_auth_token: str | None = None
+    anthropic_base_url: str | None = None
     anthropic_reaction_model: str = "claude-haiku-4-5-20251001"
     anthropic_echo_model: str = "claude-sonnet-4-6"
     anthropic_report_model: str = "claude-sonnet-4-6"
@@ -54,13 +56,13 @@ class AppSettings(EchoGridModel):
             trinity_api_key=os.getenv("TRINITY_API_KEY") or None,
             trinity_base_url=os.getenv("TRINITY_BASE_URL") or None,
             gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
+            anthropic_auth_token=os.getenv("ANTHROPIC_AUTH_TOKEN") or None,
+            anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or "https://gate.trinity.tg/aurora",
             anthropic_reaction_model=os.getenv(
                 "ECHOGRID_ANTHROPIC_REACTION_MODEL",
                 "claude-haiku-4-5-20251001",
             ),
-            anthropic_echo_model=os.getenv(
-                "ECHOGRID_ANTHROPIC_ECHO_MODEL", "claude-sonnet-4-6"
-            ),
+            anthropic_echo_model=os.getenv("ECHOGRID_ANTHROPIC_ECHO_MODEL", "claude-sonnet-4-6"),
             anthropic_report_model=os.getenv(
                 "ECHOGRID_ANTHROPIC_REPORT_MODEL", "claude-sonnet-4-6"
             ),
@@ -70,21 +72,11 @@ class AppSettings(EchoGridModel):
             gemini_reaction_model=os.getenv(
                 "ECHOGRID_GEMINI_REACTION_MODEL", "gemini-2.5-flash-lite"
             ),
-            gemini_echo_model=os.getenv(
-                "ECHOGRID_GEMINI_ECHO_MODEL", "gemini-2.5-flash"
-            ),
-            gemini_report_model=os.getenv(
-                "ECHOGRID_GEMINI_REPORT_MODEL", "gemini-2.5-flash"
-            ),
-            openai_reaction_model=os.getenv(
-                "ECHOGRID_OPENAI_REACTION_MODEL", "gpt-5.4-nano"
-            ),
-            openai_echo_model=os.getenv(
-                "ECHOGRID_OPENAI_ECHO_MODEL", "gpt-5.4-mini"
-            ),
-            openai_report_model=os.getenv(
-                "ECHOGRID_OPENAI_REPORT_MODEL", "gpt-5.4-mini"
-            ),
+            gemini_echo_model=os.getenv("ECHOGRID_GEMINI_ECHO_MODEL", "gemini-2.5-flash"),
+            gemini_report_model=os.getenv("ECHOGRID_GEMINI_REPORT_MODEL", "gemini-2.5-flash"),
+            openai_reaction_model=os.getenv("ECHOGRID_OPENAI_REACTION_MODEL", "gpt-5.4-nano"),
+            openai_echo_model=os.getenv("ECHOGRID_OPENAI_ECHO_MODEL", "gpt-5.4-mini"),
+            openai_report_model=os.getenv("ECHOGRID_OPENAI_REPORT_MODEL", "gpt-5.4-mini"),
             llm_max_workers=int(os.getenv("ECHOGRID_LLM_MAX_WORKERS", "4")),
             llm_request_timeout_seconds=int(
                 os.getenv("ECHOGRID_LLM_REQUEST_TIMEOUT_SECONDS", "30")

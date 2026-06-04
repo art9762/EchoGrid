@@ -47,7 +47,9 @@ def render_setup_panel(
             )
 
         scenario_name = st.selectbox("Scenario", list(scenarios) + ["Custom event"])
-        event = _custom_event_form() if scenario_name == "Custom event" else scenarios[scenario_name]
+        event = (
+            _custom_event_form() if scenario_name == "Custom event" else scenarios[scenario_name]
+        )
 
         run_mode_label = st.selectbox(
             "Run mode",
@@ -157,9 +159,7 @@ def render_setup_panel(
                 media_preset=media_preset,
                 included_actor_types=included_actor_types,
                 echo_items_per_actor=(
-                    (1, int(echo_items_per_actor))
-                    if int(echo_items_per_actor) > 1
-                    else 1
+                    (1, int(echo_items_per_actor)) if int(echo_items_per_actor) > 1 else 1
                 ),
                 max_workers=int(max_workers),
                 request_timeout_seconds=int(request_timeout_seconds),
@@ -185,6 +185,7 @@ def _run_with_status(
     request_timeout_seconds: int,
 ) -> dict[str, Any]:
     with st.status("Running EchoGrid simulation...", expanded=True) as status:
+
         def progress(message: str, percent: int | None = None) -> None:
             suffix = f" ({percent}%)" if percent is not None else ""
             status.write(f"{message}{suffix}")
@@ -217,9 +218,7 @@ def _previous_runs_panel(database_path) -> dict[str, Any] | None:
         return None
 
     with st.expander("Previous runs", expanded=False):
-        options = {
-            _simulation_label(summary): summary["simulation_id"] for summary in summaries
-        }
+        options = {_simulation_label(summary): summary["simulation_id"] for summary in summaries}
         selected_label = st.selectbox("Saved simulation", list(options))
         selected_id = options[selected_label]
         c1, c2 = st.columns(2)
@@ -245,9 +244,7 @@ def _custom_event_form() -> NewsEvent:
     topic = st.text_input("Topic", "policy")
     country = st.text_input("Country", "United States")
     source_type = st.text_input("Source type", "public_message")
-    description = st.text_area(
-        "Description", "Describe the event, proposal, statement, or post."
-    )
+    description = st.text_area("Description", "Describe the event, proposal, statement, or post.")
     original_text = st.text_area("Original text", description)
     return NewsEvent(
         title=title,
@@ -320,9 +317,7 @@ def _cost_panel(
     )
 
 
-def _provider_ready(
-    settings: Any, provider: LLMProvider, run_mode: str
-) -> tuple[bool, str]:
+def _provider_ready(settings: Any, provider: LLMProvider, run_mode: str) -> tuple[bool, str]:
     if run_mode == "mock":
         return True, "Mock mode is local and does not require API keys."
     if provider in {LLMProvider.ANTHROPIC, LLMProvider.OPENAI}:

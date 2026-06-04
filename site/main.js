@@ -492,39 +492,92 @@ function initHeroCanvas(reduceMotion) {
 }
 
 /* ----------------------------------------------------------
+   4b. Subtle scroll-driven hero parallax (opacity only, cheap)
+       Gated behind reduced-motion (already skipped if true).
+   ---------------------------------------------------------- */
+function initHeroParallax() {
+  const hero = document.getElementById("hero");
+  const inner = hero && hero.querySelector(".hero-inner");
+  if (!hero || !inner) return;
+
+  const onScroll = () => {
+    const scrolled = window.scrollY;
+    const heroH = hero.offsetHeight;
+    // fade out the inner content slightly as we scroll away — 0→1 as scrolled goes 0→heroH/2
+    const t = Math.min(1, scrolled / (heroH * 0.45));
+    inner.style.opacity = String(1 - t * 0.35);
+    inner.style.transform = "translateY(" + (scrolled * 0.12) + "px)";
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+}
+
+/* ----------------------------------------------------------
    5. Motion-powered enhancements (reveal / pipeline / count-up)
       Loaded defensively — content is fully visible without it.
+
+      FAILURE-PROOF GUARANTEES (all paths lead to opacity:1):
+      A) CDN blocked / import() rejects  → catch block, content untouched (already visible)
+      B) animate/inView not functions    → early return, content untouched
+      C) reduceMotion                    → early return before any hide
+      D) inView never fires              → global watchdog setTimeout(1200ms) force-shows all
+      E) animation never resolves        → per-element watchdog (delay+dur+600ms) commits visible
+      F) animate() throws                → try/catch per reveal, commit() called immediately
+
+      CSS rule `.reveal { opacity: 1 }` is the authoritative default.
+      We only set inline opacity:0 in the instant before we start the animation
+      on that specific element — so any failure path leaves the element at
+      the CSS default (fully visible).
    ---------------------------------------------------------- */
 async function initMotion(reduceMotion) {
   if (reduceMotion) {
-    runCountUp(null); // set final values instantly
+    // Finalize count-up numbers to their target values immediately.
+    runCountUp(null);
     return;
   }
+
+  // Global watchdog: after 1200ms, force-show any reveal that is still hidden.
+  // This covers the case where inView never fires (element above fold, or IO fails).
+  const globalWatchdog = setTimeout(() => {
+    document.querySelectorAll(".reveal").forEach((el) => {
+      if (el.style.opacity === "0" || el.style.opacity === "") {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+        el.style.willChange = "";
+      }
+    });
+  }, 1200);
 
   let motion;
   try {
     // Pinned (not @latest): verified to export animate/inView/stagger.
     motion = await import("https://cdn.jsdelivr.net/npm/motion@11.18.0/+esm");
   } catch (e) {
-    // CDN failed — content already visible via CSS default, just finalize counters.
+    // CDN failed — content is already visible via CSS default (we have NOT
+    // set any inline opacity:0 yet). Just finalize counters and clear watchdog.
+    clearTimeout(globalWatchdog);
     runCountUp(null);
     return;
   }
 
   const { animate, inView, stagger } = motion;
   if (typeof animate !== "function" || typeof inView !== "function") {
+    clearTimeout(globalWatchdog);
     runCountUp(null);
     return;
   }
 
-  const DUR = 0.5;       // seconds
-  const RISE = 18;       // px translateY
+  // CDN loaded successfully — clear the global watchdog now that reveals
+  // will be managed per-element with their own guards.
+  clearTimeout(globalWatchdog);
+
+  const DUR = 0.48;     // seconds — kept in 150-300ms sweet spot (×2 for longer reveals)
+  const RISE = 20;      // px translateY
   const EASE = "ease-out";
 
-  // Failure-proof reveal: hide a target inline only the instant before we
-  // animate it, then commit the final visible state. Any thrown error or
-  // a never-firing animation still leaves the element visible because we
-  // force the committed state in a microtask-safe finally + a watchdog.
+  // Failure-proof reveal: hide a target inline ONLY in the instant before we
+  // animate it. The final visible state is committed in a microtask-safe
+  // finally-equivalent (then + catch) AND a per-element watchdog timeout.
+  // Any thrown error or a never-resolving promise still ends at opacity:1.
   function reveal(target, delay) {
     const els = target instanceof Element ? [target] : Array.from(target);
     if (!els.length) return;
@@ -543,7 +596,8 @@ async function initMotion(reduceMotion) {
     });
 
     // watchdog: if the animation never resolves, show content anyway
-    const guard = setTimeout(commit, (delay || 0) * 1000 + DUR * 1000 + 600);
+    const totalMs = ((delay || 0) + DUR) * 1000 + 600;
+    const guard = setTimeout(commit, totalMs);
 
     try {
       const controls = animate(
@@ -556,8 +610,8 @@ async function initMotion(reduceMotion) {
         fin.then(() => { clearTimeout(guard); commit(); })
            .catch(() => { clearTimeout(guard); commit(); });
       } else {
-        // no promise available — commit after expected duration
-        setTimeout(() => { clearTimeout(guard); commit(); }, (delay || 0) * 1000 + DUR * 1000 + 40);
+        // no promise — commit after expected duration
+        setTimeout(() => { clearTimeout(guard); commit(); }, ((delay || 0) + DUR) * 1000 + 40);
       }
     } catch (e) {
       clearTimeout(guard);
@@ -588,8 +642,10 @@ async function initMotion(reduceMotion) {
       if (!kids.length) return;
       kids.forEach((el) => seen.add(el));
       inView(group, () => {
-        kids.forEach((el, i) => reveal(el, Math.min(i * 0.07, 0.42)));
-      }, { amount: 0.18 });
+        // Staggered group reveal: each child gets a small incremental delay
+        // capped so the last item never waits more than 420ms.
+        kids.forEach((el, i) => reveal(el, Math.min(i * 0.08, 0.42)));
+      }, { amount: 0.15 });
     });
   });
 
@@ -598,7 +654,7 @@ async function initMotion(reduceMotion) {
   document.querySelectorAll(".reveal").forEach((el) => {
     if (seen.has(el)) return;
     seen.add(el);
-    inView(el, () => reveal(el, 0), { amount: 0.2 });
+    inView(el, () => reveal(el, 0), { amount: 0.18 });
   });
 
   // Pipeline sequential highlight when in view
@@ -621,7 +677,7 @@ async function initMotion(reduceMotion) {
   // Subtle navbar elevation once the page is scrolled past the hero lip.
   initNavScroll();
 
-  // Count-up when stats enter
+  // Count-up when stats enter view.
   runCountUp(inView);
 }
 
@@ -636,16 +692,20 @@ function initNavScroll() {
   window.addEventListener("scroll", onScroll, { passive: true });
 }
 
+/* ----------------------------------------------------------
+   6. Count-up stats (cubic-ease-out, finalize to exact value)
+   ---------------------------------------------------------- */
 function runCountUp(inView) {
   const nums = document.querySelectorAll(".stat-num[data-count]");
   if (!nums.length) return;
 
   const animateNum = (el) => {
     const target = parseInt(el.dataset.count, 10) || 0;
-    const dur = 1100;
+    const dur = 1200;
     const start = performance.now();
     const tick = (now) => {
       const p = Math.min(1, (now - start) / dur);
+      // cubic ease-out for a smooth deceleration feel
       const eased = 1 - Math.pow(1 - p, 3);
       el.textContent = Math.round(target * eased).toLocaleString();
       if (p < 1) requestAnimationFrame(tick);
@@ -664,12 +724,12 @@ function runCountUp(inView) {
   }
 
   nums.forEach((el) => {
-    inView(el, () => { animateNum(el); }, { amount: 0.6 });
+    inView(el, () => { animateNum(el); }, { amount: 0.5 });
   });
 }
 
 /* ----------------------------------------------------------
-   6. Boot
+   7. Boot
    ---------------------------------------------------------- */
 function boot() {
   const reduceMotion = window.matchMedia &&
@@ -679,6 +739,7 @@ function boot() {
   initNav();
   initCopy();
   initHeroCanvas(reduceMotion);
+  if (!reduceMotion) initHeroParallax();
   initMotion(reduceMotion);
 }
 

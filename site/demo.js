@@ -598,7 +598,7 @@ function renderResults(res, quiet) {
   const barsEl = document.getElementById("demo-bars");
   barsEl.innerHTML = "";
   const maxCount = Math.max(1, ...STANCE_ORDER.map((k) => res.stance[k]));
-  STANCE_ORDER.forEach((st) => {
+  STANCE_ORDER.forEach((st, rowIdx) => {
     const count = res.stance[st];
     const pct = Math.round((count / res.population) * 100);
     const row = document.createElement("div");
@@ -616,15 +616,20 @@ function renderResults(res, quiet) {
       fill.style.width = widthPct + "%";
       nEl.textContent = count.toLocaleString();
     } else {
-      requestAnimationFrame(() => { fill.style.width = widthPct + "%"; });
-      countUp(nEl, count, "");
+      // Staggered cascade: each bar enters with a small delay so they flow in
+      const staggerDelay = rowIdx * 80; // ms
+      setTimeout(() => {
+        row.classList.add("is-visible");
+        requestAnimationFrame(() => { fill.style.width = widthPct + "%"; });
+        countUp(nEl, count, "");
+      }, staggerDelay);
     }
   });
 
-  // --- metric cards ---
+  // --- metric cards (staggered cascade reveal) ---
   const metricsEl = document.getElementById("demo-metrics");
   metricsEl.innerHTML = "";
-  Object.keys(res.metrics).forEach((key) => {
+  Object.keys(res.metrics).forEach((key, cardIdx) => {
     const m = res.metrics[key];
     const delta = m.after - m.before;
     const dcls = deltaClass(m.dir, delta);
@@ -642,11 +647,20 @@ function renderResults(res, quiet) {
       `<div class="demo-metric-delta ${dcls}">${arrow} ${sign}${delta}${m.unit}</div>`;
     metricsEl.appendChild(card);
     const afterEl = card.querySelector(".demo-metric-after");
-    if (quiet || REDUCE_MOTION) afterEl.textContent = m.after + m.unit;
-    else countUp(afterEl, m.after, m.unit);
+    if (quiet || REDUCE_MOTION) {
+      afterEl.textContent = m.after + m.unit;
+      card.classList.add("is-visible");
+    } else {
+      // Staggered cascade reveal: each card enters with an increasing delay
+      const staggerDelay = cardIdx * 90; // ms
+      setTimeout(() => {
+        card.classList.add("is-visible");
+        countUp(afterEl, m.after, m.unit);
+      }, staggerDelay);
+    }
   });
 
-  // --- representative synthetic comments ---
+  // --- representative synthetic comments (staggered) ---
   const commentsEl = document.getElementById("demo-comments");
   commentsEl.innerHTML = "";
   const tpl = COMMENT_TEMPLATES[currentLang] || COMMENT_TEMPLATES.en;
@@ -668,6 +682,12 @@ function renderResults(res, quiet) {
       `</div>` +
       `<p class="demo-comment-body">${text}</p>`;
     commentsEl.appendChild(li);
+    if (!quiet && !REDUCE_MOTION) {
+      // Staggered comment reveal
+      setTimeout(() => li.classList.add("is-visible"), i * 100);
+    } else {
+      li.classList.add("is-visible");
+    }
   });
 }
 

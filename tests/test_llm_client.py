@@ -5,6 +5,7 @@ import pytest
 import src.llm_client as llm_client
 from src.config import AppSettings
 from src.llm_client import (
+    AnthropicLLMClient,
     GeminiLLMClient,
     MockLLMClient,
     build_llm_client,
@@ -114,13 +115,13 @@ def test_build_llm_client_supports_available_providers() -> None:
     anthropic_client = build_llm_client(
         AppSettings(
             llm_provider=LLMProvider.ANTHROPIC,
-            trinity_api_key="trinity-key",
-            trinity_base_url="https://trinity.example/v1",
+            anthropic_auth_token="test-auth-token",
+            anthropic_base_url="https://gate.trinity.tg/aurora",
         )
     )
-    assert isinstance(anthropic_client, llm_client.TrinityLLMClient)
-    assert anthropic_client.provider_label == "anthropic"
-    assert anthropic_client.model == "claude-sonnet-4-6"
+    assert isinstance(anthropic_client, AnthropicLLMClient)
+    assert anthropic_client.artifact_model == "claude-sonnet-4-6"
+    assert anthropic_client.reaction_model == "claude-haiku-4-5-20251001"
 
     assert isinstance(
         build_llm_client(AppSettings(llm_provider=LLMProvider.GEMINI, gemini_api_key="key")),
@@ -140,7 +141,7 @@ def test_build_llm_client_supports_available_providers() -> None:
 
 
 def test_build_llm_client_rejects_missing_trinity_settings_for_gateway_providers() -> None:
-    with pytest.raises(ValueError, match="TRINITY_API_KEY"):
+    with pytest.raises(ValueError, match="ANTHROPIC_AUTH_TOKEN"):
         build_llm_client(AppSettings(llm_provider=LLMProvider.ANTHROPIC))
 
     with pytest.raises(ValueError, match="TRINITY_BASE_URL"):
@@ -207,3 +208,83 @@ def test_generate_reaction_json_retries_once_after_invalid_json() -> None:
     assert reaction.agent_id == "agent-1"
     assert len(client.prompts) == 2
     assert "Return JSON only" in client.prompts[1]
+
+
+def test_build_llm_client_returns_anthropic_client_with_auth_token() -> None:
+    settings = AppSettings(
+        llm_provider=LLMProvider.ANTHROPIC,
+        anthropic_auth_token="test-bearer-token",
+        anthropic_base_url="https://gate.trinity.tg/aurora",
+    )
+
+    client = build_llm_client(settings)
+
+    assert isinstance(client, AnthropicLLMClient)
+    assert client.auth_token == "test-bearer-token"
+    assert client.base_url == "https://gate.trinity.tg/aurora"
+    assert client.artifact_model == "claude-sonnet-4-6"
+    assert client.reaction_model == "claude-haiku-4-5-20251001"
+
+
+def test_anthropic_client_model_routing_reaction_uses_haiku(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_models: list[str] = []
+
+    def fake_complete_text(self: AnthropicLLMClient, prompt: str, max_tokens: int = 1500) -> str:
+        captured_models.append(self._active_model)
+        return json.dumps(REACTION_JSON)
+
+    monkeypatch.setattr(AnthropicLLMClient, "complete_text", fake_complete_text)
+
+    client = AnthropicLLMClient(
+        auth_token="tok",
+        base_url="https://gate.trinity.tg/aurora",
+        reaction_model="claude-haiku-4-5-20251001",
+        artifact_model="claude-sonnet-4-6",
+    )
+    client.generate_reaction_json("Generate reaction")
+
+    assert captured_models == ["claude-haiku-4-5-20251001"]
+    assert client._active_model == "claude-sonnet-4-6"
+
+
+def test_anthropic_client_model_routing_echo_items_uses_sonnet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_models: list[str] = []
+
+    def fake_complete_text(self: AnthropicLLMClient, prompt: str, max_tokens: int = 1500) -> str:
+        captured_models.append(self._active_model)
+        return json.dumps([ECHO_ITEM_JSON])
+
+    monkeypatch.setattr(AnthropicLLMClient, "complete_text", fake_complete_text)
+
+    client = AnthropicLLMClient(
+        auth_token="tok",
+        base_url="https://gate.trinity.tg/aurora",
+        reaction_model="claude-haiku-4-5-20251001",
+        artifact_model="claude-sonnet-4-6",
+    )
+    client.generate_echo_items_json("Generate echo items")
+
+    assert captured_models == ["claude-sonnet-4-6"]
+
+
+def test_anthropic_client_active_model_restored_after_reaction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_complete_text(self: AnthropicLLMClient, prompt: str, max_tokens: int = 1500) -> str:
+        return json.dumps(REACTION_JSON)
+
+    monkeypatch.setattr(AnthropicLLMClient, "complete_text", fake_complete_text)
+
+    client = AnthropicLLMClient(
+        auth_token="tok",
+        base_url="https://gate.trinity.tg/aurora",
+        reaction_model="claude-haiku-4-5-20251001",
+        artifact_model="claude-sonnet-4-6",
+    )
+    assert client._active_model == "claude-sonnet-4-6"
+    client.generate_reaction_json("prompt")
+    assert client._active_model == "claude-sonnet-4-6"

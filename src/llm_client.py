@@ -39,26 +39,18 @@ class LLMClient(ABC):
             prompt, TypeAdapter(model_type), max_tokens=max_tokens, retries=retries
         )
 
-    def generate_reaction_json(
-        self, prompt: str, max_tokens: int = 1500
-    ) -> AgentReaction:
+    def generate_reaction_json(self, prompt: str, max_tokens: int = 1500) -> AgentReaction:
         return self._complete_validated_model(prompt, AgentReaction, max_tokens=max_tokens)
 
-    def generate_echo_items_json(
-        self, prompt: str, max_tokens: int = 3000
-    ) -> list[EchoItem]:
+    def generate_echo_items_json(self, prompt: str, max_tokens: int = 3000) -> list[EchoItem]:
         return self._complete_validated_adapter(
             prompt, TypeAdapter(list[EchoItem]), max_tokens=max_tokens
         )
 
-    def generate_echo_reaction_json(
-        self, prompt: str, max_tokens: int = 1500
-    ) -> EchoReaction:
+    def generate_echo_reaction_json(self, prompt: str, max_tokens: int = 1500) -> EchoReaction:
         return self._complete_validated_model(prompt, EchoReaction, max_tokens=max_tokens)
 
-    def generate_framings_json(
-        self, prompt: str, max_tokens: int = 2500
-    ) -> list[NewsFrame]:
+    def generate_framings_json(self, prompt: str, max_tokens: int = 2500) -> list[NewsFrame]:
         return self._complete_validated_adapter(
             prompt, TypeAdapter(list[NewsFrame]), max_tokens=max_tokens
         )
@@ -88,9 +80,7 @@ class LLMClient(ABC):
         last_error: Exception | None = None
         for attempt in range(retries + 1):
             try:
-                payload = parse_json_value(
-                    self.complete_text(retry_prompt, max_tokens=max_tokens)
-                )
+                payload = parse_json_value(self.complete_text(retry_prompt, max_tokens=max_tokens))
                 return adapter.validate_python(payload)
             except (json.JSONDecodeError, ValidationError, ValueError) as exc:
                 last_error = exc
@@ -142,16 +132,70 @@ class TrinityLLMClient(LLMClient):
             return content
         if isinstance(content, list):
             return "".join(
-                item.get("text", "") if isinstance(item, dict) else str(item)
-                for item in content
+                item.get("text", "") if isinstance(item, dict) else str(item) for item in content
             )
         return "{}"
 
 
-class GeminiLLMClient(LLMClient):
+class AnthropicLLMClient(LLMClient):
     def __init__(
-        self, api_key: str, model: str, timeout_seconds: int | None = None
+        self,
+        auth_token: str,
+        base_url: str,
+        reaction_model: str,
+        artifact_model: str,
+        timeout_seconds: int | None = None,
     ) -> None:
+        super().__init__(model=artifact_model, timeout_seconds=timeout_seconds)
+        self.auth_token = auth_token
+        self.base_url = base_url
+        self.reaction_model = reaction_model
+        self.artifact_model = artifact_model
+        self._active_model = artifact_model
+
+    def complete_text(self, prompt: str, max_tokens: int = 1500) -> str:
+        from anthropic import Anthropic
+
+        client = Anthropic(
+            auth_token=self.auth_token,
+            base_url=self.base_url,
+            timeout=self.timeout_seconds,
+        )
+        resp = client.messages.create(
+            model=self._active_model,
+            max_tokens=max_tokens,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = "".join(
+            block.text for block in resp.content if getattr(block, "type", None) == "text"
+        )
+        return text or "{}"
+
+    def generate_reaction_json(self, prompt: str, max_tokens: int = 1500) -> AgentReaction:
+        self._active_model = self.reaction_model
+        try:
+            return super().generate_reaction_json(prompt, max_tokens=max_tokens)
+        finally:
+            self._active_model = self.artifact_model
+
+    def generate_framings_json(self, prompt: str, max_tokens: int = 2500) -> list[NewsFrame]:
+        self._active_model = self.artifact_model
+        return super().generate_framings_json(prompt, max_tokens=max_tokens)
+
+    def generate_echo_items_json(self, prompt: str, max_tokens: int = 3000) -> list[EchoItem]:
+        self._active_model = self.artifact_model
+        return super().generate_echo_items_json(prompt, max_tokens=max_tokens)
+
+    def generate_representative_comments_json(
+        self, prompt: str, max_tokens: int = 2500
+    ) -> list[RepresentativeComment]:
+        self._active_model = self.artifact_model
+        return super().generate_representative_comments_json(prompt, max_tokens=max_tokens)
+
+
+class GeminiLLMClient(LLMClient):
+    def __init__(self, api_key: str, model: str, timeout_seconds: int | None = None) -> None:
         super().__init__(model=model, timeout_seconds=timeout_seconds)
         self.api_key = api_key
 
@@ -176,10 +220,15 @@ def build_llm_client(settings: AppSettings) -> LLMClient:
     if settings.llm_provider == LLMProvider.MOCK:
         return MockLLMClient()
     if settings.llm_provider == LLMProvider.ANTHROPIC:
-        return _build_trinity_client(
-            settings=settings,
-            provider_label="anthropic",
-            model=settings.anthropic_echo_model,
+        if not settings.anthropic_auth_token:
+            raise ValueError("ANTHROPIC_AUTH_TOKEN is required for Anthropic mode")
+        if not settings.anthropic_base_url:
+            raise ValueError("ANTHROPIC_BASE_URL is required for Anthropic mode")
+        return AnthropicLLMClient(
+            auth_token=settings.anthropic_auth_token,
+            base_url=settings.anthropic_base_url,
+            reaction_model=settings.anthropic_reaction_model,
+            artifact_model=settings.anthropic_echo_model,
             timeout_seconds=settings.llm_request_timeout_seconds,
         )
     if settings.llm_provider == LLMProvider.GEMINI:

@@ -112,9 +112,7 @@ def _summary_strip(simulation: dict[str, Any]) -> None:
     cols[0].metric("Agents", len(simulation["agents"]))
     cols[1].metric("Frames", len(simulation["frames"]))
     cols[2].metric("Initial trust", trust_average(reactions))
-    cols[3].metric(
-        "Share likelihood", share_likelihood_distribution(reactions)["average"]
-    )
+    cols[3].metric("Share likelihood", share_likelihood_distribution(reactions)["average"])
     cols[4].metric("Echo items", len(echo_result.echo_items) if echo_result else 0)
 
 
@@ -201,6 +199,7 @@ def _media_tab(simulation: dict[str, Any]) -> None:
             size="reach",
             color="actor_type",
             hover_name="name",
+            color_discrete_sequence=["#38BDF8", "#8B5CF6", "#F97316", "#34D399", "#FB7185"],
         ),
         width="stretch",
     )
@@ -215,6 +214,7 @@ def _media_tab(simulation: dict[str, Any]) -> None:
                 x="name",
                 y="amplification_pressure",
                 color="actor_type",
+                color_discrete_sequence=["#38BDF8", "#8B5CF6", "#F97316", "#34D399", "#FB7185"],
             )
         ),
         width="stretch",
@@ -237,7 +237,7 @@ def _bubbles_tab(simulation: dict[str, Any]) -> None:
                 x="label",
                 y="agent_count",
                 color="outrage_sensitivity",
-                color_continuous_scale="Tealrose",
+                color_continuous_scale=[[0, "#38BDF8"], [0.5, "#8B5CF6"], [1, "#FB7185"]],
             )
         ),
         width="stretch",
@@ -248,15 +248,10 @@ def _initial_reaction_tab(simulation: dict[str, Any]) -> None:
     reactions = simulation["initial_reactions"]
     c1, c2, c3 = st.columns(3)
     c1.metric("Average trust", trust_average(reactions))
-    c2.metric(
-        "Average share likelihood", share_likelihood_distribution(reactions)["average"]
-    )
+    c2.metric("Average share likelihood", share_likelihood_distribution(reactions)["average"])
     c3.metric("Emotional intensity", emotion_averages(reactions)["emotional_intensity"])
     stance_df = pd.DataFrame(
-        [
-            {"stance": key, "percent": value}
-            for key, value in stance_distribution(reactions).items()
-        ]
+        [{"stance": key, "percent": value} for key, value in stance_distribution(reactions).items()]
     )
     st.plotly_chart(stance_bar(stance_df), width="stretch")
     df = reactions_to_dataframe(reactions, _bubble_assignments(simulation))
@@ -325,9 +320,7 @@ def _echo_items_tab(simulation: dict[str, Any]) -> None:
     )
     filtered = df[
         df["echo_type"].isin(selected_types)
-        & df["target_bubbles"].apply(
-            lambda values: bool(set(values) & set(selected_bubbles))
-        )
+        & df["target_bubbles"].apply(lambda values: bool(set(values) & set(selected_bubbles)))
     ]
     if filtered.empty:
         st.info("No echo items match the selected filters.")
@@ -352,11 +345,11 @@ def _amplification_tab(simulation: dict[str, Any]) -> None:
     cols = st.columns(max(1, len(metrics)))
     for col, (key, value) in zip(cols, metrics.items(), strict=False):
         col.metric(key.replace("_", " ").title(), value)
-    metric_df = pd.DataFrame(
-        [{"metric": key, "value": value} for key, value in metrics.items()]
-    )
+    metric_df = pd.DataFrame([{"metric": key, "value": value} for key, value in metrics.items()])
     st.plotly_chart(
-        apply_chart_layout(px.bar(metric_df, x="metric", y="value")),
+        apply_chart_layout(
+            px.bar(metric_df, x="metric", y="value", color_discrete_sequence=["#38BDF8"])
+        ),
         width="stretch",
     )
     breakdown = simulation_summary_json(
@@ -368,10 +361,7 @@ def _amplification_tab(simulation: dict[str, Any]) -> None:
     )
     summary = json.loads(breakdown)["amplification_breakdown"]
     if summary:
-        rows = [
-            {"component": component, **values}
-            for component, values in summary.items()
-        ]
+        rows = [{"component": component, **values} for component, values in summary.items()]
         st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     st.subheader("Correction effectiveness")
     st.write(correction_effectiveness(echo_result.echo_items, echo_result.echo_reactions))
@@ -393,7 +383,7 @@ def _bubble_impact_tab(simulation: dict[str, Any]) -> None:
                     x="label",
                     y="average_share_likelihood_shift",
                     color="average_anger_shift",
-                    color_continuous_scale="Tealrose",
+                    color_continuous_scale=[[0, "#34D399"], [0.5, "#8B5CF6"], [1, "#FB7185"]],
                 )
             ),
             width="stretch",
@@ -444,14 +434,19 @@ def _segment_tab(simulation: dict[str, Any]) -> None:
             "political_engagement",
         ],
     )
-    rows = segment_breakdown(
-        simulation["initial_reactions"], simulation["agents"], by_field=field
-    )
+    rows = segment_breakdown(simulation["initial_reactions"], simulation["agents"], by_field=field)
     df = pd.DataFrame(rows)
     st.dataframe(df, width="stretch", hide_index=True)
     if not df.empty:
         st.plotly_chart(
-            apply_chart_layout(px.bar(df, x="segment", y="average_share_likelihood")),
+            apply_chart_layout(
+                px.bar(
+                    df,
+                    x="segment",
+                    y="average_share_likelihood",
+                    color_discrete_sequence=["#8B5CF6"],
+                )
+            ),
             width="stretch",
         )
     st.subheader("Unexpected high-risk segments")
@@ -478,24 +473,16 @@ def _comments_tab(simulation: dict[str, Any]) -> None:
                 )
         st.divider()
 
-    df = reactions_to_dataframe(
-        simulation["initial_reactions"], _bubble_assignments(simulation)
-    )
+    df = reactions_to_dataframe(simulation["initial_reactions"], _bubble_assignments(simulation))
     stances = sorted(df["stance"].unique())
     frames = sorted(df["frame_id"].unique())
     bubbles = sorted(value for value in df["social_bubble"].dropna().unique())
     c1, c2, c3 = st.columns(3)
-    stance = c1.multiselect(
-        "Stance", stances, default=stances, key="comment_stance_filter"
-    )
+    stance = c1.multiselect("Stance", stances, default=stances, key="comment_stance_filter")
     frame = c2.multiselect("Frame", frames, default=frames, key="comment_frame_filter")
-    bubble = c3.multiselect(
-        "Bubble", bubbles, default=bubbles, key="comment_bubble_filter"
-    )
+    bubble = c3.multiselect("Bubble", bubbles, default=bubbles, key="comment_bubble_filter")
     filtered = df[
-        df["stance"].isin(stance)
-        & df["frame_id"].isin(frame)
-        & df["social_bubble"].isin(bubble)
+        df["stance"].isin(stance) & df["frame_id"].isin(frame) & df["social_bubble"].isin(bubble)
     ]
     if filtered.empty:
         st.info("No comments match the selected filters.")
