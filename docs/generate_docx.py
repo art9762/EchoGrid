@@ -140,8 +140,7 @@ def _build_title_page(doc, lines):
     # lines — содержимое между @TITLE@ и @ENDTITLE@.
     for _ in range(3):
         _add_paragraph(doc, "", center=True, indent=False)
-    big = {0, 1, 2}  # верхний блок — организация
-    for i, line in enumerate(lines):
+    for line in lines:
         line = line.strip()
         if not line:
             _add_paragraph(doc, "", center=True, indent=False)
@@ -220,7 +219,7 @@ def build():
                 marker = m.group(2)
                 content = m.group(3).strip()
                 bullet = "— " if marker in ("-", "*") else f"{marker} "
-                p = _add_paragraph(doc, bullet + content, indent=True)
+                _add_paragraph(doc, bullet + content, indent=True)
             else:
                 _add_paragraph(doc, stripped, indent=True)
         i += 1

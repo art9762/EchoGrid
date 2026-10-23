@@ -1,6 +1,8 @@
 import json
 import sqlite3
 import zipfile
+from html import escape
+from html.parser import HTMLParser
 from io import BytesIO
 
 import pytest
@@ -16,6 +18,7 @@ from src.report import (
     echo_items_to_dataframe,
     reactions_to_dataframe,
     simulation_export_zip,
+    simulation_report_html,
     simulation_summary_json,
 )
 from src.schemas import (
@@ -26,6 +29,7 @@ from src.schemas import (
     RepresentativeComment,
     Stance,
 )
+from src.simulation import run_simulation
 from src.social_bubbles import assign_agents_to_bubbles, default_social_bubbles
 from src.storage import (
     delete_simulation,
@@ -292,6 +296,7 @@ def test_simulation_export_zip_contains_release_artifacts() -> None:
     assert {
         "README.txt",
         "summary.json",
+        "report.html",
         "agents.csv",
         "reactions.csv",
         "echo_items.csv",
@@ -300,3 +305,117 @@ def test_simulation_export_zip_contains_release_artifacts() -> None:
     assert summary["event"]["title"] == "Housing policy reform"
     assert agents_csv.startswith("# EchoGrid export: agents")
     assert "not a real poll" in readme
+
+
+@pytest.mark.parametrize("echo_enabled", [False, True])
+def test_html_report_from_mock_run_survives_storage_and_zip(tmp_path, echo_enabled) -> None:
+    event = NewsEvent(
+        title="Transit safety update — Город",
+        description="The city proposes a safety update to its public transit network.",
+        country="United States",
+        topic="transportation",
+        source_type="public_announcement",
+        original_text="New reporting channels and passenger safeguards are proposed.",
+    )
+
+    def no_llm_calls(_settings):
+        pytest.fail("Mock report workflow must not create an LLM client")
+
+    db = tmp_path / "report.sqlite3"
+    current = run_simulation(
+        event=event,
+        frames=generate_framings(event, n=2),
+        population_size=12,
+        seed=71,
+        echo_enabled=echo_enabled,
+        echo_rounds=2 if echo_enabled else 0,
+        db_path=db,
+        llm_client_factory=no_llm_calls,
+    )
+    loaded = load_simulation(db, current["simulation_id"])
+    html = simulation_report_html(loaded)
+    initial_metrics = json.loads(
+        simulation_summary_json(event, loaded["frames"], loaded["initial_reactions"])
+    )["initial_metrics"]
+    assert "<!doctype html>" in html
+    assert event.title in html
+    assert current["simulation_id"] in html
+    assert "<dt>seed</dt><dd>71</dd>" in html
+    assert "<dt>run mode</dt><dd>mock</dd>" in html
+    assert "<dt>provider</dt><dd>mock</dd>" in html
+    assert f"<dt>trust average</dt><dd>{initial_metrics['trust_average']}</dd>" in html
+    assert "Synthetic simulation — not a real poll" in html
+    assert "not be used as evidence of actual public opinion" in html
+    assert "political targeting" in html
+    if echo_enabled:
+        assert "<h2>Final state metrics</h2>" in html
+        assert "<h2>Echo rounds</h2>" in html
+        for item in loaded["echo_result"].echo_items:
+            assert escape(item.text) in html
+    else:
+        assert "No echo results were recorded" in html
+        assert "<h2>Final state metrics</h2>" not in html
+    with zipfile.ZipFile(BytesIO(simulation_export_zip(loaded))) as archive:
+        assert archive.read("report.html").decode("utf-8") == html
+        assert "report.html" in archive.read("README.txt").decode("utf-8")
+        assert json.loads(archive.read("summary.json"))["initial_metrics"] == initial_metrics
+
+
+def test_html_report_escapes_all_run_content_and_has_no_external_resources() -> None:
+    event, agents, frames, reactions, actors, bubbles, assignments, echo_result = sample_run()
+    injected = (
+        '</title><script>alert("unsafe")</script><img src="https://bad.test/x" onerror="x"> & Город'
+    )
+    event.title = event.description = event.original_text = injected
+    frames[0].text = frames[0].label = frames[0].tone = injected
+    echo_result.echo_items[0].text = injected
+    echo_result.round_summaries[0].metrics = {injected: {injected: [injected]}}
+    html = simulation_report_html(
+        {
+            "simulation_id": injected,
+            "event": event,
+            "frames": frames,
+            "agents": agents,
+            "initial_reactions": reactions,
+            "bubbles": bubbles,
+            "echo_result": echo_result,
+            "provider": injected,
+            "run_mode": injected,
+            "metadata": {"created_at": injected, "seed": injected},
+            "representative_comments": [
+                RepresentativeComment(
+                    segment_id="test",
+                    segment_label=injected,
+                    stance=Stance.NEUTRAL,
+                    comment=injected,
+                    source_reaction_ids=[injected],
+                )
+            ],
+            "llm_errors": [LLMGenerationError(step=injected, message=injected)],
+        }
+    )
+    assert injected not in html
+    assert escape(injected) in html
+
+    class Elements(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            assert tag not in {"script", "img", "link", "iframe", "object", "embed", "a"}
+            assert not any(key.startswith("on") or key in {"src", "href"} for key, _ in attrs)
+
+    Elements().feed(html)
+    assert "default-src 'none'" in html
+
+
+def test_html_report_does_not_invent_missing_metadata() -> None:
+    event, agents, frames, reactions, _, bubbles, _, _ = sample_run()
+    html = simulation_report_html(
+        {
+            "event": event,
+            "agents": agents,
+            "frames": frames,
+            "initial_reactions": reactions,
+            "bubbles": bubbles,
+        }
+    )
+    assert "<dt>created at</dt><dd>Not recorded</dd>" in html
+    assert "<dt>seed</dt><dd>Not recorded</dd>" in html

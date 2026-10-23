@@ -29,7 +29,8 @@ pipeline is:
 - `src/simulation.py`: application-service layer that coordinates a full run outside Streamlit.
 - `src/ui/`: Streamlit setup, dashboard, and chart helpers.
 - `src/storage.py`: SQLite persistence, load/list/delete helpers, and simulation metadata.
-- `src/report.py`: export dataframes, summary JSON, and full ZIP bundles.
+- `src/report.py`: export dataframes, summary JSON, shared HTML/PDF report content, and full ZIP bundles.
+- `src/pdf_report.py`: local paginated PDF layout with embedded, OFL-licensed fonts.
 - `src/guardrails.py`: prohibited-use classifier helpers and refusal text.
 - `src/llm_client.py`: provider scaffolding for Anthropic, Gemini, OpenAI, and mock mode, plus typed JSON/Pydantic validation for Hybrid and Full LLM sample generation.
 

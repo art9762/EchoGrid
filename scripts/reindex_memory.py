@@ -67,13 +67,13 @@ def sig(node):
 def summarize(path):
     """Return (rel_path, loc, summary_text) for one source file."""
     rel = os.path.relpath(path, ROOT)
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         source = f.read()
     loc = source.count("\n") + 1
     try:
         tree = ast.parse(source, filename=rel)
     except SyntaxError as e:
-        return rel, loc, "File: {} ({} LOC) — unparseable: {}".format(rel, loc, e)
+        return rel, loc, f"File: {rel} ({loc} LOC) — unparseable: {e}"
 
     doc = ast.get_docstring(tree) or ""
     classes, funcs, imports = [], [], []
@@ -91,19 +91,19 @@ def summarize(path):
         elif isinstance(node, ast.ImportFrom):
             imports.append(node.module or ".")
 
-    lines = ["File: {} ({} LOC)".format(rel, loc)]
+    lines = [f"File: {rel} ({loc} LOC)"]
     if doc:
         lines.append("Purpose: " + " ".join(doc.strip().split())[:600])
     if classes:
         lines.append("Classes:")
         for name, cdoc, methods in classes:
-            lines.append("  - {}".format(name) + (": " + cdoc if cdoc else ""))
+            lines.append(f"  - {name}" + (": " + cdoc if cdoc else ""))
             if methods:
                 lines.append("    methods: " + ", ".join(methods))
     if funcs:
         lines.append("Functions:")
         for s, fdoc in funcs:
-            lines.append("  - {}".format(s) + (" — " + fdoc if fdoc else ""))
+            lines.append(f"  - {s}" + (" — " + fdoc if fdoc else ""))
     if imports:
         lines.append("Imports: " + ", ".join(sorted(set(imports))))
     return rel, loc, "\n".join(lines)
@@ -135,7 +135,7 @@ def main():
 
     files = sorted(iter_py_files())
     if not files:
-        sys.exit("No Python files found under {}".format(TARGETS))
+        sys.exit(f"No Python files found under {TARGETS}")
 
     ok = total_loc = 0
     for i, path in enumerate(files, 1):
