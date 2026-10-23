@@ -102,6 +102,21 @@ Prepends a 3-line comment header before `frame.to_csv(index=False)`:
 
 So every CSV a user receives is self-labeling: the export name plus both disclaimers from `src/config.py`. `export_metadata(export_name)` is the source of these strings.
 
+### `simulation_report_html(simulation)`
+
+Returns a complete UTF-8 HTML document for a current run or one restored by
+`load_simulation`. Download it from the dashboard's **Export HTML report** button
+or open `report.html` from the ZIP bundle. It includes recorded run identity,
+seed/mode/provider, event and framings, the same computed metrics as the JSON
+summary, echo round summaries and items, representative synthetic comments, and
+generation diagnostics. Unavailable metadata is labeled “Not recorded”; runs
+without echo results say so explicitly.
+
+The report includes both disclaimers, escapes all run content, and uses inline
+styles with no scripts, network resources, external data, or additional LLM
+calls. It opens offline and has a print layout. Dedicated PDF export remains a
+roadmap item; HTML generation adds no dependencies.
+
 ### `simulation_export_zip(simulation)`
 
 Builds an in-memory `ZIP_DEFLATED` archive (via `BytesIO`) and returns its bytes. Contents:
@@ -109,6 +124,7 @@ Builds an in-memory `ZIP_DEFLATED` archive (via `BytesIO`) and returns its bytes
 | Artifact | Source | Always present? |
 |----------|--------|-----------------|
 | `README.txt` | `_archive_readme()` — bundle description + both disclaimers + per-file legend | Yes |
+| `report.html` | `simulation_report_html(simulation)` — standalone synthetic simulation report | Yes |
 | `summary.json` | `simulation_summary_json(...)` | Yes |
 | `agents.csv` | `agents_to_dataframe(agents)` | Yes |
 | `reactions.csv` | `reactions_to_dataframe(initial_reactions, bubble_assignments)` | Yes |
@@ -125,6 +141,7 @@ A downloaded bundle (a single `.zip`) unpacks to:
 
 ```
 README.txt          synthetic + ethical disclaimers, file legend
+report.html         standalone offline report with recorded data and computed metrics
 summary.json        event, frames, initial + echo metrics, comments, errors
 agents.csv          synthetic agent profiles (+ age_group, trust bucket)
 reactions.csv       initial synthetic reactions (emotion_* cols, social_bubble)

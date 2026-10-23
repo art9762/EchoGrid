@@ -149,7 +149,12 @@ Dashboard export supports:
 - echo items CSV
 - echo reactions CSV
 - summary JSON
-- full ZIP bundle with README, CSVs, and summary JSON
+- standalone HTML report with run details, recorded event/frames, computed metrics, echo rounds, comments, and diagnostics
+- full ZIP bundle with README, HTML report, CSVs, and summary JSON
+
+The HTML report opens offline in a browser with no CDN, scripts, external data,
+or additional LLM calls. All run content is escaped and the report is explicitly
+labeled as a synthetic simulation. It also works for loaded previous runs.
 
 Saved simulations can be loaded or deleted from the sidebar. LLM-mode errors and representative comments are stored in the simulation payload and restored when loading previous runs. The SQLite file is local runtime data and is ignored by git.
 
@@ -189,5 +194,5 @@ MIT License. See [LICENSE](LICENSE).
 
 - Add screenshots from a polished manual demo pass.
 - Add richer scenario-comparison workflows.
-- Add exportable HTML/PDF reports.
+- Add dedicated PDF report export (standalone HTML reports are available).
 - Add calibration hooks for external research datasets without claiming prediction.
