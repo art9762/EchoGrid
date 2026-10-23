@@ -22,6 +22,7 @@ from src.analytics import (
     trust_average,
 )
 from src.config import ETHICAL_USE_DISCLAIMER, SYNTHETIC_SIMULATION_DISCLAIMER
+from src.pdf_report import render_pdf_report
 from src.schemas import (
     AgentProfile,
     AgentReaction,
@@ -146,12 +147,8 @@ def dataframe_to_csv_export(frame: pd.DataFrame, export_name: str) -> str:
     return f"{header}\n{frame.to_csv(index=False)}"
 
 
-def simulation_report_html(simulation: dict[str, Any]) -> str:
-    """Render a self-contained report from a current or rehydrated simulation.
-
-    All run content is escaped as text; no scripts or external resources are used.
-    Metrics share the JSON summary's existing analytics rather than a new model.
-    """
+def _report_sections(simulation: dict[str, Any]) -> tuple[str, list[tuple[str, Any]]]:
+    """One recorded/computed content model shared by the HTML and PDF renderers."""
     echo_result = simulation.get("echo_result")
     summary = json.loads(
         simulation_summary_json(
@@ -181,45 +178,58 @@ def simulation_report_html(simulation: dict[str, Any]) -> str:
         "echo_reactions": summary["echo_reaction_count"],
     }
     sections = [
-        ("Run details", _html_value(identity)),
-        ("Event", _html_value(event)),
-        ("Media framings", _html_table(summary["frames"])),
+        ("Run details", identity),
+        ("Event", event),
+        ("Media framings", summary["frames"]),
         (
-            "Initial reaction metrics",
-            "<p>Stance shares are percentages of initial agent/frame reactions, "
+            "Metric interpretation",
+            "Stance shares are percentages of initial agent/frame reactions, "
             "not population survey estimates. Emotion, trust and sharing scores use "
-            "the simulator's 0–100 scale.</p>" + _html_value(summary["initial_metrics"]),
+            "the simulator's 0–100 scale.",
         ),
+        ("Initial reaction metrics", summary["initial_metrics"]),
     ]
     if echo_result is not None:
         sections.extend(
             [
-                ("Final state metrics", _html_value(summary["final_state_metrics"])),
-                ("Amplification metrics", _html_value(summary["amplification_metrics"])),
-                ("Amplification breakdown", _html_value(summary["amplification_breakdown"])),
-                ("Narrative risk summary", _html_value(summary["narrative_risk_summary"])),
+                ("Final state metrics", summary["final_state_metrics"]),
+                ("Amplification metrics", summary["amplification_metrics"]),
+                ("Amplification breakdown", summary["amplification_breakdown"]),
+                ("Narrative risk summary", summary["narrative_risk_summary"]),
                 (
                     "Echo rounds",
-                    _html_table(
-                        [row.model_dump(mode="json") for row in echo_result.round_summaries]
-                    ),
+                    [row.model_dump(mode="json") for row in echo_result.round_summaries],
                 ),
                 (
                     "Echo items",
-                    _html_table([item.model_dump(mode="json") for item in echo_result.echo_items]),
+                    [item.model_dump(mode="json") for item in echo_result.echo_items],
                 ),
             ]
         )
     else:
-        sections.append(("Echo phase", "<p>No echo results were recorded for this run.</p>"))
+        sections.append(("Echo phase", "No echo results were recorded for this run."))
     sections.extend(
         [
-            ("Representative synthetic comments", _html_table(summary["representative_comments"])),
-            ("Generation diagnostics", _html_table(summary["llm_errors"])),
+            ("Representative synthetic comments", summary["representative_comments"]),
+            ("Generation diagnostics", summary["llm_errors"]),
         ]
     )
+    return event["title"], sections
+
+
+def simulation_report_pdf(simulation: dict[str, Any]) -> bytes:
+    """Create an offline, paginated PDF with embedded fonts and recorded run data."""
+    title, sections = _report_sections(simulation)
+    return render_pdf_report(title, sections)
+
+
+def simulation_report_html(simulation: dict[str, Any]) -> str:
+    """Render a self-contained report, escaping all content as inert text."""
+    title, sections = _report_sections(simulation)
     body = "\n".join(
-        f"<section><h2>{escape(title)}</h2>{content}</section>" for title, content in sections
+        f"<section><h2>{escape(heading)}</h2>"
+        f"{_html_table(content) if isinstance(content, list) else _html_value(content)}</section>"
+        for heading, content in sections
     )
     return f"""<!doctype html>
 <html lang="en">
@@ -227,7 +237,7 @@ def simulation_report_html(simulation: dict[str, Any]) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>EchoGrid synthetic simulation — {escape(event["title"])}</title>
+<title>EchoGrid synthetic simulation — {escape(title)}</title>
 <style>
 body {{ margin: 0 auto; padding: 2rem; max-width: 76rem; color: #172437;
        background: #fff; font: 16px/1.5 system-ui, sans-serif; }}
@@ -244,7 +254,7 @@ th {{ background: #f0f3f7; }} ul {{ padding-left: 1.3rem; }} footer {{ margin-to
 </style>
 </head>
 <body>
-<header><p>EchoGrid · Synthetic simulation report</p><h1>{escape(event["title"])}</h1></header>
+<header><p>EchoGrid · Synthetic simulation report</p><h1>{escape(title)}</h1></header>
 <aside class="notice"><strong>Synthetic simulation — not a real poll</strong>
 <p>{escape(SYNTHETIC_SIMULATION_DISCLAIMER)}</p>
 <p>{escape(ETHICAL_USE_DISCLAIMER)}</p></aside>
@@ -292,6 +302,7 @@ def simulation_export_zip(simulation: dict[str, Any]) -> bytes:
     files = {
         "README.txt": _archive_readme(),
         "report.html": simulation_report_html(simulation),
+        "report.pdf": simulation_report_pdf(simulation),
         "summary.json": simulation_summary_json(
             event=simulation["event"],
             frames=simulation["frames"],
@@ -353,6 +364,7 @@ def _archive_readme() -> str:
             "",
             "Files:",
             "- report.html: standalone synthetic simulation report; open locally in a browser.",
+            "- report.pdf: paginated synthetic simulation report with embedded fonts.",
             "- summary.json: event, frames, initial metrics, and echo metrics.",
             "- agents.csv: synthetic agent profiles.",
             "- reactions.csv: initial synthetic reactions.",

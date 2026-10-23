@@ -20,6 +20,11 @@ def test_streamlit_demo_mode_renders_dashboard_without_widget_collisions(
     ]
     assert len(html_exports) == 1
     assert html_exports[0].proto.url
+    pdf_exports = [
+        button for button in app.get("download_button") if button.proto.label == "Export PDF report"
+    ]
+    assert len(pdf_exports) == 1
+    assert pdf_exports[0].proto.url
     assert [tab.label for tab in app.tabs] == [
         "Overview",
         "Narrative",

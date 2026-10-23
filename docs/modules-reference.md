@@ -57,6 +57,7 @@ The whole pipeline is sequenced by `simulation.py`; LLM modes layer `llm_pipelin
 |--------|----------------|------------|
 | `src/analytics.py` | Pure metric functions over reactions and echo results: stance/emotion distributions, trust/share aggregates, polarization and virality scores, segment breakdowns, frame comparison/sensitivity, final-state metrics, amplification breakdown, narrative-risk and bubble-susceptibility summaries, correction effectiveness. | [analytics-metrics.md](analytics-metrics.md) |
 | `src/report.py` | Export and report builders. Converts agents/reactions/echo items/echo reactions to DataFrames, builds disclaimer-stamped CSV, the `summary.json` payload (`simulation_summary_json`), `export_metadata`, and the full ZIP bundle (`simulation_export_zip`). | [storage-and-export.md](storage-and-export.md) |
+| `src/pdf_report.py` | Renders the shared recorded/computed report sections into a standalone, paginated PDF with embedded Noto Sans fonts. Escapes content as text; requires no browser or network renderer. | [storage-and-export.md](storage-and-export.md) |
 
 ## Persistence
 

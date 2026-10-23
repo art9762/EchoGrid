@@ -30,6 +30,7 @@ from src.report import (
     reactions_to_dataframe,
     simulation_export_zip,
     simulation_report_html,
+    simulation_report_pdf,
     simulation_summary_json,
 )
 from src.schemas import LLMProvider, NewsEvent
@@ -555,6 +556,12 @@ def _export_tab(simulation: dict[str, Any]) -> None:
         simulation_report_html(simulation),
         "report.html",
         mime="text/html",
+    )
+    st.download_button(
+        "Export PDF report",
+        simulation_report_pdf(simulation),
+        "report.pdf",
+        mime="application/pdf",
     )
     st.download_button(
         "Export full ZIP",

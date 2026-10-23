@@ -28,7 +28,7 @@ The current release runs fully in deterministic mock mode without API keys. It a
 - Gemini
 - OpenAI / ChatGPT via Trinity
 
-The full agent-scale pipeline uses mock mode by default. LLM provider calls are available in bounded Hybrid mode and capped Full LLM sample mode. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/ZIP exports, automated tests, CI/lint configuration, developer handoff docs, a UI-independent simulation service layer, multi-round echo simulation, media presets, and persisted LLM diagnostics.
+The full agent-scale pipeline uses mock mode by default. LLM provider calls are available in bounded Hybrid mode and capped Full LLM sample mode. The local release includes SQLite persistence, previous-run loading/deletion, CSV/JSON/HTML/PDF/ZIP exports, automated tests, CI/lint configuration, developer handoff docs, a UI-independent simulation service layer, multi-round echo simulation, media presets, and persisted LLM diagnostics.
 
 ## Installation
 
@@ -149,12 +149,20 @@ Dashboard export supports:
 - echo items CSV
 - echo reactions CSV
 - summary JSON
-- standalone HTML report with run details, recorded event/frames, computed metrics, echo rounds, comments, and diagnostics
-- full ZIP bundle with README, HTML report, CSVs, and summary JSON
+- standalone HTML and PDF reports with run details, recorded event/frames, computed metrics, echo rounds, comments, and diagnostics
+- full ZIP bundle with README, HTML/PDF reports, CSVs, and summary JSON
 
 The HTML report opens offline in a browser with no CDN, scripts, external data,
 or additional LLM calls. All run content is escaped and the report is explicitly
-labeled as a synthetic simulation. It also works for loaded previous runs.
+labeled as a synthetic simulation. Both reports also work for loaded previous runs.
+
+The PDF is generated locally with ReportLab, with embedded Noto Sans fonts for
+Latin, Greek and Cyrillic text (including Russian), automatic pagination and
+page numbers. Long fields wrap across pages. Characters outside the bundled
+font coverage are shown explicitly as `[U+XXXX]` rather than silently omitted.
+No browser installation, system fonts, network renderer or additional LLM calls
+are required. Font sources and the OFL license are in
+[`src/assets/fonts/`](src/assets/fonts/README.md).
 
 Saved simulations can be loaded or deleted from the sidebar. LLM-mode errors and representative comments are stored in the simulation payload and restored when loading previous runs. The SQLite file is local runtime data and is ignored by git.
 
@@ -188,11 +196,11 @@ The test suite covers schemas, configuration, population generation, framings, m
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+Application code: MIT License. See [LICENSE](LICENSE). Bundled Noto Sans fonts
+use the [SIL Open Font License 1.1](src/assets/fonts/OFL.txt).
 
 ## Roadmap
 
 - Add screenshots from a polished manual demo pass.
 - Add richer scenario-comparison workflows.
-- Add dedicated PDF report export (standalone HTML reports are available).
 - Add calibration hooks for external research datasets without claiming prediction.

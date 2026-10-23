@@ -38,8 +38,9 @@ src/prompts/
 
 src/analytics.py
 src/report.py
+src/pdf_report.py
   Analytics and reporting layer: aggregate metrics, amplification breakdown,
-  final-state metrics, narrative-risk highlights, CSV/JSON/ZIP exports
+  final-state metrics, narrative-risk highlights, CSV/JSON/HTML/PDF/ZIP exports
 
 src/storage.py
   Persistence layer: SQLite initialization, save/load/list/delete helpers

@@ -114,8 +114,30 @@ without echo results say so explicitly.
 
 The report includes both disclaimers, escapes all run content, and uses inline
 styles with no scripts, network resources, external data, or additional LLM
-calls. It opens offline and has a print layout. Dedicated PDF export remains a
-roadmap item; HTML generation adds no dependencies.
+calls. It opens offline and has a print layout. HTML and PDF reports share one
+recorded/computed section model and both use local rendering.
+
+### `simulation_report_pdf(simulation)`
+
+Returns standalone PDF bytes. Download **Export PDF report** in the dashboard,
+or open `report.pdf` from the full ZIP. `src/pdf_report.py` uses ReportLab's local
+paragraph layout, with A4 pages, wrapping long fields, page numbers and a
+synthetic-simulation notice on every page. It does not interpret run text as
+markup, fetch links/images, run scripts, or call a model.
+
+Both reports contain the same event, run metadata, frames, computed metrics,
+echo rounds/items, comments and diagnostics; a loaded SQLite run is supported.
+Missing metadata remains “Not recorded”. Long records split across pages,
+instead of being put in an unsplittable table row.
+
+Noto Sans Regular/Bold are bundled and embedded for Latin, Greek and Cyrillic
+(including Russian); their original OFL license, source commit and checksums are
+in [`src/assets/fonts/`](../src/assets/fonts/README.md). Characters outside that
+coverage are written as `[U+XXXX]`. This is a text report; it does not add charts,
+calibration or predictive validity to the simulation. Runtime generation needs
+ReportLab, with no separate browser/runtime installation. `pypdf` is included in
+the existing development/test requirements to verify text, font embedding,
+pagination and ZIP round trips.
 
 ### `simulation_export_zip(simulation)`
 
@@ -125,6 +147,7 @@ Builds an in-memory `ZIP_DEFLATED` archive (via `BytesIO`) and returns its bytes
 |----------|--------|-----------------|
 | `README.txt` | `_archive_readme()` — bundle description + both disclaimers + per-file legend | Yes |
 | `report.html` | `simulation_report_html(simulation)` — standalone synthetic simulation report | Yes |
+| `report.pdf` | `simulation_report_pdf(simulation)` — paginated report with embedded fonts | Yes |
 | `summary.json` | `simulation_summary_json(...)` | Yes |
 | `agents.csv` | `agents_to_dataframe(agents)` | Yes |
 | `reactions.csv` | `reactions_to_dataframe(initial_reactions, bubble_assignments)` | Yes |
@@ -142,6 +165,7 @@ A downloaded bundle (a single `.zip`) unpacks to:
 ```
 README.txt          synthetic + ethical disclaimers, file legend
 report.html         standalone offline report with recorded data and computed metrics
+report.pdf          paginated portable report with embedded Latin/Greek/Cyrillic fonts
 summary.json        event, frames, initial + echo metrics, comments, errors
 agents.csv          synthetic agent profiles (+ age_group, trust bucket)
 reactions.csv       initial synthetic reactions (emotion_* cols, social_bubble)
@@ -155,4 +179,4 @@ echo_reactions.csv  second-round reactions      (echo runs only)
 
 ## Disclaimers in exports
 
-`SYNTHETIC_SIMULATION_DISCLAIMER` and `ETHICAL_USE_DISCLAIMER` (defined in `src/config.py`) are surfaced in **every** export path: the `summary.json` `export_metadata`, the header of every CSV, and `README.txt`. EchoGrid output is synthetic — not a real poll — and exports state this on their face. See [Configuration](configuration.md) for the disclaimer text.
+`SYNTHETIC_SIMULATION_DISCLAIMER` and `ETHICAL_USE_DISCLAIMER` (defined in `src/config.py`) are surfaced in **every** export path: HTML/PDF reports, the `summary.json` `export_metadata`, the header of every CSV, and `README.txt`. EchoGrid output is synthetic — not a real poll — and exports state this on their face. See [Configuration](configuration.md) for the disclaimer text.
